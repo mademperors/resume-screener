@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+__pycache__/
+.venv/
+venv/
+
+# Build artifacts
+dist/
+build/
+target/
+*.class
+
+# Environment & secrets
+.env
+.env.*
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & local data
+*.log
+data/
+uploads/
