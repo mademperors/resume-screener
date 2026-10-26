@@ -9,6 +9,8 @@ dist/
 build/
 target/
 *.class
+*.tsbuildinfo
+coverage/
 
 # Environment & secrets
 .env
