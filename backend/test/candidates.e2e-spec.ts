@@ -221,6 +221,83 @@ describe.skipIf(!hasDatabase)('Candidates and progress (e2e)', () => {
     expect(new Date(link.body.expiresAt).getTime()).toBeGreaterThan(Date.now());
   });
 
+  it('exports the filtered list as CSV in display order', async () => {
+    const response = await h
+      .http()
+      .get(`/api/v1/jobs/${jobId}/candidates/export.csv?hasWarnings=false`)
+      .set(bearer(token))
+      .buffer(true)
+      .parse((res, done) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => (body += chunk));
+        res.on('end', () => done(null, body));
+      })
+      .expect(200);
+    expect(response.headers['content-type']).toBe('text/csv; charset=utf-8');
+    expect(response.headers['content-disposition']).toMatch(
+      /^attachment; filename="Backend Engineer - candidates \d{4}-\d{2}-\d{2}\.csv"/,
+    );
+    const lines = (response.body as string).split('\r\n').filter(Boolean);
+    expect(lines[0]).toBe(
+      '﻿Rank,Name,Email,Phone,Match score,Experience (years),Key skills,Missing skills,Warnings,Status,Below minimum score',
+    );
+    expect(lines.slice(1).map((line) => line.split(',').slice(0, 2))).toEqual([
+      ['1', 'Alice Strong'],
+      ['2', 'Bob Brown'],
+    ]);
+    expect(lines[2]).toContain(',Approved,No');
+  });
+
+  it('builds the job report', async () => {
+    const report = await h
+      .http()
+      .get(`/api/v1/jobs/${jobId}/report`)
+      .set(bearer(token))
+      .expect(200);
+    expect(report.body).toMatchObject({
+      job: { id: jobId, title: 'Backend Engineer', configVersion: 1 },
+      processing: {
+        total: 5,
+        processed: 4,
+        summary: 'Processed 4 of 5, 1 failed',
+      },
+      candidates: {
+        total: 4,
+        aboveThreshold: 3,
+        belowThreshold: 1,
+        withWarnings: 2,
+        byDecision: { Pending: 3, Approved: 1, Rejected: 0 },
+      },
+    });
+    expect(report.body.candidates.scoreDistribution).toHaveLength(5);
+    expect(
+      report.body.candidates.scoreDistribution.reduce(
+        (sum: number, bucket: { count: number }) => sum + bucket.count,
+        0,
+      ),
+    ).toBe(4);
+    expect(report.body.requirements).toEqual([
+      expect.objectContaining({
+        requirementId: 'skill:typescript',
+        met: 4,
+        share: 1,
+      }),
+      expect.objectContaining({
+        requirementId: 'skill:postgresql',
+        met: 3,
+        share: 0.75,
+      }),
+      expect.objectContaining({ requirementId: 'skill:docker', met: 3 }),
+      expect.objectContaining({ requirementId: 'experience', met: 2 }),
+    ]);
+    expect(report.body.topCandidates.map((c: Summary) => c.name)).toEqual([
+      'Alice Strong',
+      'Bob Brown',
+      'Dan Green',
+    ]);
+  });
+
   it('links processed resumes to their candidates', async () => {
     const resumes = await h
       .http()

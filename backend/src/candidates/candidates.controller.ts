@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotImplementedException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -16,7 +15,6 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiProduces,
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
@@ -25,7 +23,6 @@ import type { Principal } from '../common/principal.js';
 import { CandidatesService, toSummary } from './candidates.service.js';
 import {
   CandidateDetailDto,
-  CandidateFiltersDto,
   CandidatePageDto,
   DownloadLinkDto,
   ListCandidatesQueryDto,
@@ -65,26 +62,6 @@ export class CandidatesController {
       pageSize: query.pageSize,
       minMatchScore: job.minMatchScore,
     };
-  }
-
-  @Get('jobs/:jobId/candidates/export.csv')
-  @ApiProduces('text/csv')
-  @ApiOperation({ summary: 'Export the filtered candidate list as CSV' })
-  exportCsv(
-    @CurrentPrincipal() _principal: Principal,
-    @Param('jobId', ParseUUIDPipe) _jobId: string,
-    @Query() _query: CandidateFiltersDto,
-  ) {
-    throw new NotImplementedException();
-  }
-
-  @Get('jobs/:jobId/report')
-  @ApiOperation({ summary: 'Summary report for a job, for printing' })
-  report(
-    @CurrentPrincipal() _principal: Principal,
-    @Param('jobId', ParseUUIDPipe) _jobId: string,
-  ) {
-    throw new NotImplementedException();
   }
 
   @Get('candidates/:candidateId')
