@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayNotEmpty,
@@ -13,8 +13,10 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { JobStatus, type Job } from '../job.entity.js';
+import type { ScoringSettings } from '../requirements.js';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -24,6 +26,90 @@ const trimEach = ({ value }: { value: unknown }) =>
     : value;
 
 export const MAX_SKILLS_PER_LIST = 50;
+export const MAX_WEIGHT = 10;
+
+export class SkillWeightDto {
+  @ApiProperty({ example: 'Kotlin' })
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  skill: string;
+
+  @ApiProperty({ minimum: 0, maximum: MAX_WEIGHT, example: 4 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(MAX_WEIGHT)
+  weight: number;
+}
+
+/** All optional; omitted values keep the job's current or default settings. */
+export class ScoringSettingsInputDto {
+  @ApiPropertyOptional({ minimum: 0, maximum: MAX_WEIGHT, default: 2 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(MAX_WEIGHT)
+  requiredSkillWeight?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: MAX_WEIGHT, default: 1 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(MAX_WEIGHT)
+  preferredSkillWeight?: number;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: MAX_WEIGHT, default: 2 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(MAX_WEIGHT)
+  experienceWeight?: number;
+
+  @ApiPropertyOptional({
+    type: [SkillWeightDto],
+    description:
+      'Weights for single skills, overriding the weight of their kind. ' +
+      "Each skill must be one of the job's skills. Replaces the whole list.",
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_SKILLS_PER_LIST * 2)
+  @ValidateNested({ each: true })
+  @Type(() => SkillWeightDto)
+  skillWeights?: SkillWeightDto[];
+
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: 1,
+    default: 0.6,
+    description:
+      'Below this model confidence on a mandatory requirement, the candidate ' +
+      'is marked "Needs manual review".',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(1)
+  manualReviewThreshold?: number;
+}
+
+export class ScoringSettingsDto implements ScoringSettings {
+  @ApiProperty()
+  requiredSkillWeight: number;
+
+  @ApiProperty()
+  preferredSkillWeight: number;
+
+  @ApiProperty()
+  experienceWeight: number;
+
+  @ApiProperty({ type: [SkillWeightDto] })
+  skillWeights: SkillWeightDto[];
+
+  @ApiProperty()
+  manualReviewThreshold: number;
+}
 
 export class CreateJobDto {
   @ApiProperty({ example: 'Senior Backend Engineer', maxLength: 200 })
@@ -83,6 +169,17 @@ export class CreateJobDto {
   @Min(0)
   @Max(100)
   minMatchScore?: number;
+
+  @ApiPropertyOptional({
+    type: () => ScoringSettingsInputDto,
+    description:
+      'How requirements are weighted and when to ask for manual review. ' +
+      'Omitted fields keep their current (or default) values.',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ScoringSettingsInputDto)
+  scoring?: ScoringSettingsInputDto;
 }
 
 export class UpdateJobDto extends PartialType(CreateJobDto) {}
@@ -129,6 +226,9 @@ export class JobDto {
   })
   configVersion: number;
 
+  @ApiProperty({ type: ScoringSettingsDto })
+  scoring: ScoringSettingsDto;
+
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt: Date;
 
@@ -147,6 +247,7 @@ export class JobDto {
       status: job.status,
       closedAt: job.closedAt,
       configVersion,
+      scoring: scoringOf(job),
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
     };
@@ -160,4 +261,15 @@ export class UpdatedJobDto extends JobDto {
       'Offer to re-score them with POST /jobs/{jobId}/rescore.',
   })
   rescoreSuggested: boolean;
+}
+
+/** The job's effective scoring settings. */
+export function scoringOf(job: Job): ScoringSettings {
+  return {
+    requiredSkillWeight: job.requiredSkillWeight,
+    preferredSkillWeight: job.preferredSkillWeight,
+    experienceWeight: job.experienceWeight,
+    skillWeights: job.skillWeights,
+    manualReviewThreshold: job.manualReviewThreshold,
+  };
 }

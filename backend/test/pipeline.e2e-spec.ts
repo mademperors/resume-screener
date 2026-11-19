@@ -37,10 +37,10 @@ describe.skipIf(!hasDatabase)('Resume pipeline with real stages (e2e)', () => {
     await h?.app.close();
   });
 
-  async function process(file: Buffer, name: string) {
+  async function process(file: Buffer, name: string, forJob = jobId) {
     const upload = await h
       .http()
-      .post(`/api/v1/jobs/${jobId}/resumes`)
+      .post(`/api/v1/jobs/${forJob}/resumes`)
       .set(bearer(token))
       .attach('files', file, name)
       .expect(202);
@@ -120,6 +120,35 @@ describe.skipIf(!hasDatabase)('Resume pipeline with real stages (e2e)', () => {
       },
     ]);
     const { candidate } = await process(pdf, 'ann.pdf');
+    expect(candidate!.flags).toEqual([CandidateFlag.NeedsManualReview]);
+  });
+
+  it("scores with the job's own weights and review threshold", async () => {
+    const job = await h
+      .http()
+      .post('/api/v1/jobs')
+      .set(bearer(token))
+      .send({
+        title: 'Android Engineer',
+        description: 'Mobile',
+        requiredSkills: ['TypeScript', 'Kotlin'],
+        minExperienceYears: 3,
+        scoring: {
+          experienceWeight: 0,
+          skillWeights: [{ skill: 'TypeScript', weight: 6 }],
+          manualReviewThreshold: 0.99,
+        },
+      })
+      .expect(201);
+    const pdf = await makePdf([
+      { text: 'Ben Cole' },
+      { text: 'Mobile developer with TypeScript and 5 years of experience.' },
+    ]);
+    const { candidate } = await process(pdf, 'ben.pdf', job.body.id);
+
+    // 100 * (6 * 0.95 + 2 * 0 + 0 * 0.9) / (6 + 2 + 0)
+    expect(candidate!.matchScore).toBe(71.25);
+    // Every verdict is below 0.99 confidence, so a person should check.
     expect(candidate!.flags).toEqual([CandidateFlag.NeedsManualReview]);
   });
 

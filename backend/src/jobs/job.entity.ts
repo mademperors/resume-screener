@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Company } from '../companies/company.entity.js';
 import { numericTransformer } from '../database/numeric.transformer.js';
+import type { SkillWeight } from './requirements.js';
 
 export enum JobStatus {
   Open = 'open',
@@ -55,6 +56,47 @@ export class Job {
   /** Candidates scoring below this (0–100) are listed separately at the bottom. */
   @Column({ type: 'smallint', default: 0 })
   minMatchScore: number;
+
+  // Scoring settings (see ScoringSettings); frozen into each config version.
+
+  @Column({
+    type: 'numeric',
+    precision: 4,
+    scale: 2,
+    default: 2,
+    transformer: numericTransformer,
+  })
+  requiredSkillWeight: number;
+
+  @Column({
+    type: 'numeric',
+    precision: 4,
+    scale: 2,
+    default: 1,
+    transformer: numericTransformer,
+  })
+  preferredSkillWeight: number;
+
+  @Column({
+    type: 'numeric',
+    precision: 4,
+    scale: 2,
+    default: 2,
+    transformer: numericTransformer,
+  })
+  experienceWeight: number;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  skillWeights: SkillWeight[];
+
+  @Column({
+    type: 'numeric',
+    precision: 3,
+    scale: 2,
+    default: 0.6,
+    transformer: numericTransformer,
+  })
+  manualReviewThreshold: number;
 
   @Column({ type: 'enum', enum: JobStatus, default: JobStatus.Open })
   status: JobStatus;

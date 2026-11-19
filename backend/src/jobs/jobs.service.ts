@@ -6,15 +6,21 @@ import { RequestValidationException } from '../common/http-exception.filter.js';
 import type { Principal } from '../common/principal.js';
 import { assertOwnedByCompany } from '../common/tenant.js';
 import { Resume } from '../resumes/resume.entity.js';
-import type { CreateJobDto, UpdateJobDto } from './dto/job.dto.js';
+import {
+  scoringOf,
+  type CreateJobDto,
+  type ScoringSettingsInputDto,
+  type UpdateJobDto,
+} from './dto/job.dto.js';
 import { Job, JobStatus } from './job.entity.js';
 import {
   buildRequirements,
   cleanSkills,
-  DEFAULT_MANUAL_REVIEW_CONFIDENCE,
+  DEFAULT_SCORING,
   normalizeSkill,
   type JobRequirementsInput,
   type RequirementSpec,
+  type ScoringSettings,
 } from './requirements.js';
 import { ScoringConfigVersion } from './scoring-config-version.entity.js';
 
@@ -81,9 +87,14 @@ export class JobsService {
       dto.requiredSkills,
       dto.preferredSkills ?? [],
     );
+    const scoring = resolveScoring(DEFAULT_SCORING, dto.scoring, {
+      ...skills,
+      minExperienceYears: dto.minExperienceYears,
+    });
     return this.dataSource.transaction(async (manager) => {
       const job = await manager.save(
         manager.create(Job, {
+          ...scoring,
           companyId: principal.companyId,
           title: dto.title,
           description: dto.description,
@@ -134,10 +145,15 @@ export class JobsService {
         ...skills,
         minExperienceYears: dto.minExperienceYears ?? job.minExperienceYears,
       };
-      const requirementsChanged = !sameRequirements(
-        current.requirements,
-        buildRequirements(next),
-      );
+      const scoring = resolveScoring(scoringOf(job), dto.scoring, next);
+      // Weights and the review threshold are part of the scoring config too.
+      const requirementsChanged =
+        !sameRequirements(
+          current.requirements,
+          buildRequirements(next, scoring),
+        ) ||
+        current.manualReviewConfidenceThreshold !==
+          scoring.manualReviewThreshold;
       const minMatchScoreChanged =
         dto.minMatchScore !== undefined &&
         dto.minMatchScore !== job.minMatchScore;
@@ -149,6 +165,7 @@ export class JobsService {
         preferredSkills: next.preferredSkills,
         minExperienceYears: next.minExperienceYears,
         minMatchScore: dto.minMatchScore ?? job.minMatchScore,
+        ...scoring,
       });
 
       let config = current;
@@ -216,8 +233,8 @@ export class JobsService {
       manager.create(ScoringConfigVersion, {
         jobId: job.id,
         version,
-        requirements: buildRequirements(job),
-        manualReviewConfidenceThreshold: DEFAULT_MANUAL_REVIEW_CONFIDENCE,
+        requirements: buildRequirements(job, scoringOf(job)),
+        manualReviewConfidenceThreshold: job.manualReviewThreshold,
       }),
     );
   }
@@ -269,6 +286,69 @@ export function cleanJobSkills(
     ]);
   }
   return { requiredSkills: required, preferredSkills: preferred };
+}
+
+/**
+ * The job's scoring settings after applying the input over the current
+ * ones. Per-skill weights must name one of the job's skills; weights for
+ * skills no longer in the job are dropped. At least one requirement must
+ * carry weight, or every candidate would score 0.
+ */
+export function resolveScoring(
+  current: Readonly<ScoringSettings>,
+  input: ScoringSettingsInputDto | undefined,
+  job: JobRequirementsInput,
+): ScoringSettings {
+  const jobSkills = new Map(
+    [...job.requiredSkills, ...job.preferredSkills].map((skill) => [
+      normalizeSkill(skill),
+      skill,
+    ]),
+  );
+  const unknown: string[] = [];
+  const skillWeights = new Map<string, { skill: string; weight: number }>();
+  for (const entry of input?.skillWeights ?? current.skillWeights) {
+    const skill = jobSkills.get(normalizeSkill(entry.skill));
+    if (skill) {
+      skillWeights.set(normalizeSkill(skill), { skill, weight: entry.weight });
+    } else if (input?.skillWeights) {
+      unknown.push(entry.skill);
+    }
+  }
+  if (unknown.length > 0) {
+    throw new RequestValidationException([
+      {
+        field: 'scoring.skillWeights',
+        messages: unknown.map(
+          (skill) => `${skill} is not one of this job's skills.`,
+        ),
+      },
+    ]);
+  }
+
+  const scoring: ScoringSettings = {
+    requiredSkillWeight:
+      input?.requiredSkillWeight ?? current.requiredSkillWeight,
+    preferredSkillWeight:
+      input?.preferredSkillWeight ?? current.preferredSkillWeight,
+    experienceWeight: input?.experienceWeight ?? current.experienceWeight,
+    skillWeights: [...skillWeights.values()],
+    manualReviewThreshold:
+      input?.manualReviewThreshold ?? current.manualReviewThreshold,
+  };
+  const totalWeight = buildRequirements(job, scoring).reduce(
+    (sum, requirement) => sum + requirement.weight,
+    0,
+  );
+  if (totalWeight <= 0) {
+    throw new RequestValidationException([
+      {
+        field: 'scoring',
+        messages: ['At least one requirement needs a weight above 0.'],
+      },
+    ]);
+  }
+  return scoring;
 }
 
 /** Compares what affects scoring; renaming "typescript" to "TypeScript" doesn't. */

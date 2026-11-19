@@ -17,18 +17,49 @@ export interface RequirementSpec {
   minYears?: number;
 }
 
-/** Default weights; a later version can make them configurable per job. */
-export const REQUIREMENT_WEIGHTS = {
-  requiredSkill: 2,
-  preferredSkill: 1,
-  experience: 2,
-} as const;
+/** A weight for one skill that overrides the weight of its kind. */
+export interface SkillWeight {
+  skill: string;
+  weight: number;
+}
 
 /**
- * Below this model confidence on a mandatory requirement the candidate is
- * marked "Needs manual review".
+ * How a job is scored. Part of the job; frozen with its requirements into
+ * each ScoringConfigVersion.
  */
-export const DEFAULT_MANUAL_REVIEW_CONFIDENCE = 0.6;
+export interface ScoringSettings {
+  /** Weight of each required (mandatory) skill. */
+  requiredSkillWeight: number;
+  /** Weight of each preferred skill. */
+  preferredSkillWeight: number;
+  /** Weight of the minimum-experience requirement. */
+  experienceWeight: number;
+  /** Per-skill overrides, e.g. Kotlin counts 4 while other required skills count 2. */
+  skillWeights: SkillWeight[];
+  /**
+   * Below this model confidence (0..1) on a mandatory requirement the
+   * candidate is marked "Needs manual review".
+   */
+  manualReviewThreshold: number;
+}
+
+export const DEFAULT_SCORING: Readonly<ScoringSettings> = Object.freeze({
+  requiredSkillWeight: 2,
+  preferredSkillWeight: 1,
+  experienceWeight: 2,
+  skillWeights: [],
+  manualReviewThreshold: 0.6,
+});
+
+/** Default weights by kind. */
+export const REQUIREMENT_WEIGHTS = {
+  requiredSkill: DEFAULT_SCORING.requiredSkillWeight,
+  preferredSkill: DEFAULT_SCORING.preferredSkillWeight,
+  experience: DEFAULT_SCORING.experienceWeight,
+} as const;
+
+export const DEFAULT_MANUAL_REVIEW_CONFIDENCE =
+  DEFAULT_SCORING.manualReviewThreshold;
 
 export function normalizeSkill(skill: string): string {
   return skill.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -57,7 +88,13 @@ export interface JobRequirementsInput {
 
 export function buildRequirements(
   job: JobRequirementsInput,
+  scoring: Readonly<ScoringSettings> = DEFAULT_SCORING,
 ): RequirementSpec[] {
+  const overrides = new Map(
+    scoring.skillWeights.map((w) => [normalizeSkill(w.skill), w.weight]),
+  );
+  const weightOf = (name: string, byKind: number) =>
+    overrides.get(normalizeSkill(name)) ?? byKind;
   const skill = (
     name: string,
     mandatory: boolean,
@@ -71,10 +108,10 @@ export function buildRequirements(
   });
   const requirements = [
     ...job.requiredSkills.map((name) =>
-      skill(name, true, REQUIREMENT_WEIGHTS.requiredSkill),
+      skill(name, true, weightOf(name, scoring.requiredSkillWeight)),
     ),
     ...job.preferredSkills.map((name) =>
-      skill(name, false, REQUIREMENT_WEIGHTS.preferredSkill),
+      skill(name, false, weightOf(name, scoring.preferredSkillWeight)),
     ),
   ];
   if (job.minExperienceYears > 0) {
@@ -85,7 +122,7 @@ export function buildRequirements(
         job.minExperienceYears === 1 ? 'year' : 'years'
       } of experience`,
       mandatory: true,
-      weight: REQUIREMENT_WEIGHTS.experience,
+      weight: scoring.experienceWeight,
       minYears: job.minExperienceYears,
     });
   }

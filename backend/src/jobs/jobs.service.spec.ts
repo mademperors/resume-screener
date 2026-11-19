@@ -1,6 +1,10 @@
 import { RequestValidationException } from '../common/http-exception.filter.js';
-import { cleanJobSkills, sameRequirements } from './jobs.service.js';
-import { buildRequirements } from './requirements.js';
+import {
+  cleanJobSkills,
+  resolveScoring,
+  sameRequirements,
+} from './jobs.service.js';
+import { buildRequirements, DEFAULT_SCORING } from './requirements.js';
 
 describe('cleanJobSkills', () => {
   it('removes duplicates in each list', () => {
@@ -74,5 +78,98 @@ describe('sameRequirements', () => {
         }),
       ),
     ).toBe(false);
+  });
+});
+
+describe('resolveScoring', () => {
+  const job = {
+    requiredSkills: ['TypeScript', 'Kotlin'],
+    preferredSkills: ['Docker'],
+    minExperienceYears: 2,
+  };
+
+  it('starts from the defaults', () => {
+    expect(resolveScoring(DEFAULT_SCORING, undefined, job)).toEqual({
+      requiredSkillWeight: 2,
+      preferredSkillWeight: 1,
+      experienceWeight: 2,
+      skillWeights: [],
+      manualReviewThreshold: 0.6,
+    });
+  });
+
+  it('applies kind weights, per-skill weights and the threshold', () => {
+    const scoring = resolveScoring(
+      DEFAULT_SCORING,
+      {
+        experienceWeight: 0,
+        skillWeights: [{ skill: 'kotlin', weight: 4 }],
+        manualReviewThreshold: 0.8,
+      },
+      job,
+    );
+    expect(scoring).toMatchObject({
+      experienceWeight: 0,
+      skillWeights: [{ skill: 'Kotlin', weight: 4 }],
+      manualReviewThreshold: 0.8,
+    });
+    expect(
+      buildRequirements(job, scoring).map((r) => [r.id, r.weight]),
+    ).toEqual([
+      ['skill:typescript', 2],
+      ['skill:kotlin', 4],
+      ['skill:docker', 1],
+      ['experience', 0],
+    ]);
+  });
+
+  it('keeps current values not in the input and drops weights of removed skills', () => {
+    const current = {
+      ...DEFAULT_SCORING,
+      preferredSkillWeight: 3,
+      skillWeights: [
+        { skill: 'Kotlin', weight: 4 },
+        { skill: 'Go', weight: 5 },
+      ],
+    };
+    expect(
+      resolveScoring(current, { requiredSkillWeight: 1 }, job),
+    ).toMatchObject({
+      requiredSkillWeight: 1,
+      preferredSkillWeight: 3,
+      skillWeights: [{ skill: 'Kotlin', weight: 4 }],
+    });
+  });
+
+  it("rejects weights for skills the job doesn't have", () => {
+    try {
+      resolveScoring(
+        DEFAULT_SCORING,
+        { skillWeights: [{ skill: 'COBOL', weight: 3 }] },
+        job,
+      );
+      expect.fail('expected a validation error');
+    } catch (error) {
+      expect((error as RequestValidationException).fieldErrors).toEqual([
+        {
+          field: 'scoring.skillWeights',
+          messages: ["COBOL is not one of this job's skills."],
+        },
+      ]);
+    }
+  });
+
+  it('rejects settings where nothing carries weight', () => {
+    expect(() =>
+      resolveScoring(
+        DEFAULT_SCORING,
+        {
+          requiredSkillWeight: 0,
+          preferredSkillWeight: 0,
+          experienceWeight: 0,
+        },
+        job,
+      ),
+    ).toThrow(RequestValidationException);
   });
 });

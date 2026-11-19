@@ -108,6 +108,91 @@ describe.skipIf(!hasDatabase)('Jobs (e2e)', () => {
     expect(changed.body.rescoreSuggested).toBe(false);
   });
 
+  it('uses default scoring settings and accepts custom ones', async () => {
+    const defaults = await createJob();
+    expect(defaults.scoring).toEqual({
+      requiredSkillWeight: 2,
+      preferredSkillWeight: 1,
+      experienceWeight: 2,
+      skillWeights: [],
+      manualReviewThreshold: 0.6,
+    });
+
+    const custom = await createJob(token, {
+      ...newJob,
+      scoring: {
+        preferredSkillWeight: 0.5,
+        skillWeights: [{ skill: 'postgresql', weight: 5 }],
+        manualReviewThreshold: 0.75,
+      },
+    });
+    expect(custom.scoring).toEqual({
+      requiredSkillWeight: 2,
+      preferredSkillWeight: 0.5,
+      experienceWeight: 2,
+      skillWeights: [{ skill: 'PostgreSQL', weight: 5 }],
+      manualReviewThreshold: 0.75,
+    });
+  });
+
+  it('versions weight and threshold changes like requirement changes', async () => {
+    const job = await createJob();
+    const patch = (body: object) =>
+      h.http().patch(`/api/v1/jobs/${job.id}`).set(bearer(token)).send(body);
+
+    const weighted = await patch({
+      scoring: { skillWeights: [{ skill: 'TypeScript', weight: 4 }] },
+    }).expect(200);
+    expect(weighted.body.configVersion).toBe(2);
+
+    const threshold = await patch({
+      scoring: { manualReviewThreshold: 0.9 },
+    }).expect(200);
+    expect(threshold.body.configVersion).toBe(3);
+    // Untouched settings are kept.
+    expect(threshold.body.scoring.skillWeights).toEqual([
+      { skill: 'TypeScript', weight: 4 },
+    ]);
+
+    const same = await patch({
+      scoring: { manualReviewThreshold: 0.9 },
+    }).expect(200);
+    expect(same.body.configVersion).toBe(3);
+
+    // Removing a skill drops its weight.
+    const removed = await patch({ requiredSkills: ['PostgreSQL'] }).expect(200);
+    expect(removed.body.scoring.skillWeights).toEqual([]);
+  });
+
+  it('rejects invalid scoring settings', async () => {
+    const send = (scoring: object) =>
+      h
+        .http()
+        .post('/api/v1/jobs')
+        .set(bearer(token))
+        .send({ ...newJob, scoring })
+        .expect(400);
+    const unknownSkill = await send({
+      skillWeights: [{ skill: 'COBOL', weight: 2 }],
+    });
+    expect(unknownSkill.body.errors[0]).toEqual({
+      field: 'scoring.skillWeights',
+      messages: ["COBOL is not one of this job's skills."],
+    });
+    const outOfRange = await send({
+      requiredSkillWeight: 11,
+      manualReviewThreshold: 1.5,
+    });
+    expect(
+      outOfRange.body.errors.map((e: { field: string }) => e.field),
+    ).toEqual(['scoring.requiredSkillWeight', 'scoring.manualReviewThreshold']);
+    await send({
+      requiredSkillWeight: 0,
+      preferredSkillWeight: 0,
+      experienceWeight: 0,
+    });
+  });
+
   it('closes, reopens and deletes a job', async () => {
     const job = await createJob();
     const closed = await h

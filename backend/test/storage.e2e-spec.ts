@@ -63,7 +63,9 @@ describe.skipIf(!endpoint)('S3FileStorage against a real store (e2e)', () => {
   it('reports wrong credentials as storage unavailable', async () => {
     await expect(storage.checkHealth()).resolves.toBeUndefined();
     const broken = new S3FileStorage({ ...options, secretAccessKey: 'wrong' });
-    await expect(broken.checkHealth()).rejects.toBeInstanceOf(StorageUnavailableError);
+    await expect(broken.checkHealth()).rejects.toBeInstanceOf(
+      StorageUnavailableError,
+    );
     await expect(
       broken.put('k', Buffer.from('x'), 'application/pdf'),
     ).rejects.toBeInstanceOf(StorageUnavailableError);
