@@ -25,6 +25,7 @@ export default defineConfig({
       // files record queued tasks; worker.e2e-spec.ts uses the real queue.
       REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379/1',
       PROCESSING_BACKOFF_MS: '200',
+      ADMIN_API_TOKEN: 'e2e-admin-token-e2e-admin-token-e2e',
     },
   },
 });

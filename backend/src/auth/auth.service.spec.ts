@@ -1,3 +1,4 @@
+import type { CompanyPlansService } from '../companies/company-plans.service.js';
 import { UnauthorizedException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -87,6 +88,7 @@ function createService() {
     google as unknown as GoogleTokenVerifier,
     jwt,
     config,
+    {} as CompanyPlansService,
   );
   return { service, users, companies, sessions };
 }

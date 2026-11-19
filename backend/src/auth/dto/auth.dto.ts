@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString } from 'class-validator';
+import { CompanyPlan } from '../../companies/company.entity.js';
 
 export class GoogleSignInDto {
   @ApiProperty({
@@ -42,11 +43,22 @@ export class CompanyDto {
   @ApiProperty()
   name: string;
 
+  @ApiProperty({ enum: CompanyPlan })
+  plan: CompanyPlan;
+
   @ApiProperty({
     description: 'Requests per minute allowed for each API key.',
     example: 200,
   })
   apiRateLimitPerMinute: number;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description:
+      'Set when the company has a custom limit instead of its plan limit.',
+  })
+  customRateLimitPerMinute: number | null;
 }
 
 export class MeDto {

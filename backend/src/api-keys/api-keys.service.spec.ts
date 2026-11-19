@@ -5,7 +5,7 @@ import type { Company } from '../companies/company.entity.js';
 import type { ApiKey } from './api-key.entity.js';
 import { ApiKeysService } from './api-keys.service.js';
 
-const company = { id: 'company-1', apiRateLimitPerMinute: 200 } as Company;
+const company = { id: 'company-1', plan: 'standard' } as Company;
 
 function createService() {
   const rows: ApiKey[] = [];
@@ -51,7 +51,7 @@ describe('ApiKeysService', () => {
     const key = await service.verify(plaintext);
 
     expect(key?.companyId).toBe('company-1');
-    expect(key?.company.apiRateLimitPerMinute).toBe(200);
+    expect(key?.company.plan).toBe('standard');
   });
 
   it('rejects a key with the right prefix but wrong secret', async () => {

@@ -51,6 +51,27 @@ export class EnvironmentVariables {
   @IsString()
   CORS_ORIGINS?: string;
 
+  // --- Plans and administration ---
+
+  /** Requests per minute per API key on the standard plan. */
+  @IsInt()
+  @Min(1)
+  PLAN_STANDARD_RATE_LIMIT: number = 200;
+
+  /** Requests per minute per API key on the extended plan. */
+  @IsInt()
+  @Min(1)
+  PLAN_EXTENDED_RATE_LIMIT: number = 1000;
+
+  /**
+   * Enables the admin API (/api/v1/admin) for the platform operator, who
+   * sends it in the X-Admin-Token header. Unset: the admin API is off.
+   */
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  ADMIN_API_TOKEN?: string;
+
   // --- Object storage (S3 API; SeaweedFS locally) ---
 
   /** Omit for AWS S3; e.g. http://localhost:8333 for SeaweedFS. */

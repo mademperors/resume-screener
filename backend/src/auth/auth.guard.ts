@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { ApiKeysService } from '../api-keys/api-keys.service.js';
 import { IS_PUBLIC_KEY, SESSION_ONLY_KEY } from '../common/decorators.js';
 import type { AuthenticatedRequest } from '../common/principal.js';
+import { CompanyPlansService } from '../companies/company-plans.service.js';
 import { AuthService } from './auth.service.js';
 
 export const API_KEY_HEADER = 'x-api-key';
@@ -23,6 +24,7 @@ export class AuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly auth: AuthService,
     private readonly apiKeys: ApiKeysService,
+    private readonly plans: CompanyPlansService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -51,7 +53,7 @@ export class AuthGuard implements CanActivate {
         kind: 'apiKey',
         apiKeyId: key.id,
         companyId: key.companyId,
-        rateLimitPerMinute: key.company.apiRateLimitPerMinute,
+        rateLimitPerMinute: this.plans.rateLimitFor(key.company),
       };
       return true;
     }

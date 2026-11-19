@@ -42,6 +42,10 @@ export function configureApp(
       .setVersion('1')
       .addBearerAuth()
       .addApiKey({ type: 'apiKey', in: 'header', name: 'X-API-Key' }, 'api-key')
+      .addApiKey(
+        { type: 'apiKey', in: 'header', name: 'X-Admin-Token' },
+        'admin-token',
+      )
       .build(),
   );
   SwaggerModule.setup('api/docs', app, document);

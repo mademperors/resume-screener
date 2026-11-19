@@ -93,7 +93,8 @@ export class Job {
     type: 'numeric',
     precision: 3,
     scale: 2,
-    default: 0.6,
+    // Raw expression: Postgres stores this default as 0.6, not '0.6'::numeric.
+    default: () => '0.6',
     transformer: numericTransformer,
   })
   manualReviewThreshold: number;

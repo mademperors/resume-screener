@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomToken, sha256Hex } from '../common/crypto.js';
+import { CompanyPlansService } from '../companies/company-plans.service.js';
 import { Company } from '../companies/company.entity.js';
 import type { EnvironmentVariables } from '../config/env.validation.js';
 import { User } from '../users/user.entity.js';
@@ -38,6 +39,7 @@ export class AuthService {
     private readonly google: GoogleTokenVerifier,
     private readonly jwt: JwtService,
     config: ConfigService<EnvironmentVariables, true>,
+    private readonly plans: CompanyPlansService,
   ) {
     this.accessTokenTtlSeconds =
       config.get('ACCESS_TOKEN_TTL_MINUTES', { infer: true }) * 60;
@@ -136,7 +138,7 @@ export class AuthService {
       company: {
         id: user.company.id,
         name: user.company.name,
-        apiRateLimitPerMinute: user.company.apiRateLimitPerMinute,
+        ...this.plans.describe(user.company),
       },
     };
   }

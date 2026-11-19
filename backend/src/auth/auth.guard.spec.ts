@@ -1,3 +1,4 @@
+import type { CompanyPlansService } from '../companies/company-plans.service.js';
 import {
   ExecutionContext,
   ForbiddenException,
@@ -39,6 +40,7 @@ describe('AuthGuard', () => {
     new Reflector(),
     auth as unknown as AuthService,
     apiKeys as unknown as ApiKeysService,
+    { rateLimitFor: () => 500 } as unknown as CompanyPlansService,
   );
 
   beforeEach(() => vi.resetAllMocks());
@@ -59,7 +61,7 @@ describe('AuthGuard', () => {
     apiKeys.verify.mockResolvedValue({
       id: 'key-1',
       companyId: 'company-1',
-      company: { apiRateLimitPerMinute: 500 },
+      company: { plan: 'extended', customRateLimitPerMinute: null },
     });
     const { context, request } = contextFor({ 'x-api-key': 'rsk_x' });
 

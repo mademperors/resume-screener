@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiKeysModule } from '../api-keys/api-keys.module.js';
+import { CompaniesModule } from '../companies/companies.module.js';
 import { Company } from '../companies/company.entity.js';
 import type { EnvironmentVariables } from '../config/env.validation.js';
 import { User } from '../users/user.entity.js';
@@ -24,6 +25,7 @@ import { Session } from './session.entity.js';
       }),
     }),
     ApiKeysModule,
+    CompaniesModule,
   ],
   controllers: [AuthController],
   providers: [
