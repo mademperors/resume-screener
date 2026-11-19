@@ -179,5 +179,7 @@ external systems send `X-API-Key`.
 | `GET /health`, `GET /health/ready` | Health |
 | `GET /admin/plans`, `GET /admin/companies`, `PATCH /admin/companies/{id}/plan` | Plans, for the platform operator (`X-Admin-Token`) |
 
-The full contract, with request and response schemas, is at `/api/docs`
+The full contract, with request and response schemas, is committed as
+`docs/openapi.json` (regenerate with `npm run openapi`; a test fails if it
+is out of date). With the API running it is also at `/api/docs`
 (JSON at `/api/docs-json`).

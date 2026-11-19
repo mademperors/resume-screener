@@ -3,7 +3,11 @@ import {
   ValidationPipe,
   VersioningType,
 } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+  DocumentBuilder,
+  SwaggerModule,
+  type OpenAPIObject,
+} from '@nestjs/swagger';
 import {
   AllExceptionsFilter,
   validationExceptionFactory,
@@ -14,8 +18,7 @@ export function configureApp(
   app: INestApplication,
   corsOrigins?: string,
 ): void {
-  app.setGlobalPrefix('api');
-  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+  configureRouting(app);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -30,8 +33,21 @@ export function configureApp(
       origin: corsOrigins.split(',').map((origin) => origin.trim()),
     });
   }
+  SwaggerModule.setup('api/docs', app, buildOpenApiDocument(app));
+}
 
-  const document = SwaggerModule.createDocument(
+/** URL layout: everything under /api/v1. Also used to generate the spec. */
+export function configureRouting(app: INestApplication): void {
+  app.setGlobalPrefix('api');
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+}
+
+/**
+ * The OpenAPI document, built from the controllers and DTOs. Served at
+ * /api/docs-json and written to docs/openapi.json by `npm run openapi`.
+ */
+export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
+  return SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
       .setTitle('Resume Screener API')
@@ -48,5 +64,4 @@ export function configureApp(
       )
       .build(),
   );
-  SwaggerModule.setup('api/docs', app, document);
 }

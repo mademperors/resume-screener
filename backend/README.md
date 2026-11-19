@@ -71,6 +71,16 @@ DATABASE_URL=postgres://screener:screener@localhost:5432/screener_e2e npm run te
 # S3_SECRET_ACCESS_KEY=screener-dev-secret to also test real file storage
 ```
 
+## API specification
+
+`docs/openapi.json` is the API contract (OpenAPI 3), generated from the
+controllers and DTOs. After changing an endpoint or DTO, regenerate it and
+commit it with the change; a unit test fails while it is out of date:
+
+```bash
+npm run openapi               # no database or other services needed
+```
+
 ## Database migrations
 
 The schema is managed by TypeORM migrations in `src/database/migrations`

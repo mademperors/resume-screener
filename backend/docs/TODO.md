@@ -32,8 +32,8 @@ The rest of the system is ready; only the model call is missing.
 
 ## 2. Frontend (Frontend engineer)
 
-The API is complete for every screen in SR 1.5.3; the contract is at
-`/api/docs`. Points the frontend has to handle:
+The API is complete for every screen in SR 1.5.3; the contract is
+`docs/openapi.json` (also served at `/api/docs` when running). Points the frontend has to handle:
 
 - **Sign-in:** Google Identity Services gives an ID token; send it to
   `POST /auth/google`. The access token lasts 15 minutes, so refresh it with

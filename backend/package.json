@@ -17,6 +17,7 @@
     "start:worker": "node dist/worker",
     "start:worker:dev": "nest start --watch --entryFile worker",
     "lint": "oxlint --type-aware src/ test/",
+    "openapi": "nest build && node dist/openapi/write-openapi.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
