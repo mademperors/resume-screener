@@ -96,6 +96,23 @@ export class EnvironmentVariables {
   @Min(30)
   @Max(3600)
   RESUME_DOWNLOAD_URL_TTL_SECONDS: number = 300;
+
+  // --- Processing queue (BullMQ on Valkey/Redis) ---
+
+  /** e.g. redis://localhost:6379; use rediss:// for TLS. */
+  @IsUrl({ protocols: ['redis', 'rediss'], require_tld: false })
+  REDIS_URL: string;
+
+  /** Tries per resume before it is marked "Processing failed". */
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  PROCESSING_MAX_ATTEMPTS: number = 5;
+
+  /** First retry delay; each next one doubles. */
+  @IsInt()
+  @Min(100)
+  PROCESSING_BACKOFF_MS: number = 10_000;
 }
 
 export function validateEnv(

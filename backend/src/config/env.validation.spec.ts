@@ -7,6 +7,7 @@ const required = {
   GOOGLE_CLIENT_ID: 'client-id',
   S3_ACCESS_KEY_ID: 'access-key',
   S3_SECRET_ACCESS_KEY: 'secret-key',
+  REDIS_URL: 'redis://localhost:6379',
 };
 
 describe('validateEnv', () => {

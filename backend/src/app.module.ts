@@ -11,6 +11,7 @@ import {
 import { databaseOptions } from './database/database.options.js';
 import { HealthController } from './health/health.controller.js';
 import { JobsModule } from './jobs/jobs.module.js';
+import { QueueModule } from './queue/queue.module.js';
 import { ResumesModule } from './resumes/resumes.module.js';
 import { StorageModule } from './storage/storage.module.js';
 
@@ -26,6 +27,7 @@ import { StorageModule } from './storage/storage.module.js';
         ),
     }),
     StorageModule,
+    QueueModule,
     AuthModule,
     ApiKeysModule,
     JobsModule,

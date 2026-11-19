@@ -6,6 +6,10 @@ import {
   GoogleTokenVerifier,
   type GoogleIdentity,
 } from './../src/auth/google-token.verifier.js';
+import {
+  ProcessingQueue,
+  type ResumeTask,
+} from './../src/queue/processing-queue.js';
 import { configureApp } from './../src/setup.js';
 import { FileStorage } from './../src/storage/file-storage.js';
 import { InMemoryFileStorage } from './../src/storage/in-memory-file-storage.js';
@@ -16,6 +20,7 @@ export const hasDatabase = Boolean(process.env.DATABASE_URL);
 export interface Harness {
   app: INestApplication<App>;
   storage: InMemoryFileStorage;
+  queue: RecordingProcessingQueue;
   http: () => ReturnType<typeof request>;
   /** Signs in a new user with their own company; returns an access token. */
   signIn: (who: string) => Promise<string>;
@@ -23,7 +28,7 @@ export interface Harness {
 
 /**
  * Boots the full API against the real database with Google sign-in faked
- * and files kept in memory.
+ * files kept in memory and queued tasks recorded instead of processed.
  * `customize` can override further providers (storage, queue…).
  */
 export async function createHarness(
@@ -42,11 +47,14 @@ export async function createHarness(
     }),
   };
   const storage = new InMemoryFileStorage();
+  const queue = new RecordingProcessingQueue();
   let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(GoogleTokenVerifier)
     .useValue(fakeGoogle)
     .overrideProvider(FileStorage)
-    .useValue(storage);
+    .useValue(storage)
+    .overrideProvider(ProcessingQueue)
+    .useValue(queue);
   if (customize) {
     builder = customize(builder);
   }
@@ -63,7 +71,21 @@ export async function createHarness(
       .expect(200);
     return response.body.accessToken as string;
   };
-  return { app, storage, http, signIn };
+  return { app, storage, queue, http, signIn };
+}
+
+/** Records tasks instead of sending them to the workers. */
+export class RecordingProcessingQueue extends ProcessingQueue {
+  readonly tasks: ResumeTask[] = [];
+  failNext = false;
+
+  async enqueue(tasks: readonly ResumeTask[]): Promise<void> {
+    if (this.failNext) {
+      this.failNext = false;
+      throw new Error('Queue is down');
+    }
+    this.tasks.push(...tasks);
+  }
 }
 
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });

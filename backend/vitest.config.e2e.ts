@@ -18,6 +18,8 @@ export default defineConfig({
       S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? 'e2e-access-key',
       S3_SECRET_ACCESS_KEY:
         process.env.S3_SECRET_ACCESS_KEY ?? 'e2e-secret-key',
+      // The app connects to Redis, but e2e tests record queued tasks instead.
+      REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
     },
   },
 });
