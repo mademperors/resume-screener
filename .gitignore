@@ -32,3 +32,6 @@ Thumbs.db
 *.log
 data/
 uploads/
+
+# Database dumps from the backup container
+backups/

@@ -3,18 +3,46 @@
 NestJS REST API (`/api/v1`, OpenAPI docs at `/api/docs`) plus a background
 worker that processes uploaded resumes.
 
-## Run locally
+## Run everything in Docker
 
 ```bash
-docker compose up -d          # Postgres, Valkey (queue), SeaweedFS (S3 file storage)
+cp .env.example .env          # set JWT_SECRET and GOOGLE_CLIENT_ID
+docker compose up -d --build
+```
+
+The API is at `https://localhost/api/v1`, docs at `https://localhost/api/docs`
+(Caddy's local certificate; trust it or use `curl -k`). Containers, all in the
+`resume-screener-backend` compose project:
+
+| Container | Role |
+|---|---|
+| `resume-screener-postgres` | PostgreSQL |
+| `resume-screener-valkey` | Queue (BullMQ) and shared rate-limit counters |
+| `resume-screener-seaweedfs` | Resume files (S3 API, encrypted volumes) |
+| `resume-screener-migrate` | Applies migrations, then exits; API and worker wait for it |
+| `resume-screener-api` | REST API |
+| `resume-screener-worker` | Resume processing, sweeps, data retention |
+| `resume-screener-caddy` | HTTPS for the API (`API_DOMAIN`) and download links (`FILES_DOMAIN`); HTTP redirects to HTTPS |
+| `resume-screener-backup` | Daily `pg_dump` into `./backups`, kept `BACKUP_KEEP_DAYS` days |
+
+Postgres, Valkey and SeaweedFS are published on 127.0.0.1 only, for local
+development. To process faster, raise `WORKER_CONCURRENCY`, or add a second
+worker service (fixed container names rule out `--scale`).
+
+Restore a backup:
+`gunzip -c backups/<file>.sql.gz | docker exec -i resume-screener-postgres psql -U screener -d screener`
+
+## Develop locally
+
+```bash
+docker compose up -d postgres valkey seaweedfs
 cp .env.example .env          # then set JWT_SECRET and GOOGLE_CLIENT_ID
 npm install
 npm run start:dev             # API on :3000; applies migrations on start
 npm run start:worker:dev      # worker (or set RUN_WORKER_IN_API=true)
 ```
 
-Start the worker after the API has applied migrations. Run more worker
-processes, or raise `WORKER_CONCURRENCY`, to process faster.
+Start the worker after the API has applied migrations.
 
 ## Tests
 
