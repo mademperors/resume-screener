@@ -6,6 +6,8 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
+    // Files share one database; each boots the app, which applies migrations.
+    fileParallelism: false,
     // ConfigModule validates env when AppModule is imported, so set test values here.
     env: {
       DB_RUN_MIGRATIONS: 'true',
