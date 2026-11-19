@@ -18,6 +18,7 @@
     "start:worker:dev": "nest start --watch --entryFile worker",
     "lint": "oxlint --type-aware src/ test/",
     "openapi": "nest build && node dist/openapi/write-openapi.js",
+    "test-files": "node docs/manual-testing/generate-files.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",

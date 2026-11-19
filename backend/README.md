@@ -61,7 +61,8 @@ Add `"customRateLimitPerMinute": 5000` for a custom limit, or `null` to remove i
 ## Tests
 
 For checking by hand (demo, review, a deployment), follow
-[docs/MANUAL_TESTING.md](docs/MANUAL_TESTING.md).
+[docs/manual-testing](docs/manual-testing/README.md); ready-made test
+files are in `docs/manual-testing/files` (`npm run test-files` recreates them).
 
 ```bash
 npm test                      # unit tests

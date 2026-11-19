@@ -35,3 +35,6 @@ uploads/
 
 # Database dumps from the backup container
 backups/
+
+# Recreated by `npm run test-files` (over 10 MB)
+backend/docs/manual-testing/files/big.pdf

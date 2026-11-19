@@ -17,7 +17,7 @@ Read these before exploring the code; they're shorter and kept current.
 | What the backend does, by area, with requirement numbers | `backend/docs/DONE.md` |
 | What's left: Jev steps, what the frontend must handle, deployment | `backend/docs/TODO.md` |
 | Running, testing, Docker, migrations, plans | `backend/README.md` |
-| How to test by hand, step by step with expected results | `backend/docs/MANUAL_TESTING.md` |
+| How to test by hand, step by step with expected results | `backend/docs/manual-testing/README.md` (test files in `files/`) |
 | All settings | `backend/.env.example` |
 
 By role:
