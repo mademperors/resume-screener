@@ -7,9 +7,11 @@ import { RESUME_QUEUE, type ResumeTask } from '../queue/processing-queue.js';
 import { createRedisClient } from '../queue/redis.module.js';
 import { ResumeProcessor } from './resume-processor.service.js';
 import { ResumeSweeper } from './resume-sweeper.service.js';
+import { RetentionService } from './retention.service.js';
 
 export const MAINTENANCE_QUEUE = 'resume-maintenance';
 const SWEEP_SCHEDULER_ID = 'sweep-resumes';
+const RETENTION_SCHEDULER_ID = 'data-retention';
 
 /**
  * Background processing. Started by the worker process (src/worker.ts), or by
@@ -25,6 +27,7 @@ export class ResumeWorker implements OnApplicationShutdown {
   private readonly concurrency: number;
   private readonly ratePerSecond: number;
   private readonly sweepIntervalMs: number;
+  private readonly retentionIntervalMs: number;
 
   private connection: Redis | null = null;
   private workers: Worker[] = [];
@@ -33,6 +36,7 @@ export class ResumeWorker implements OnApplicationShutdown {
   constructor(
     private readonly processor: ResumeProcessor,
     private readonly sweeper: ResumeSweeper,
+    private readonly retention: RetentionService,
     config: ConfigService<EnvironmentVariables, true>,
   ) {
     this.redisUrl = config.get('REDIS_URL', { infer: true });
@@ -42,6 +46,8 @@ export class ResumeWorker implements OnApplicationShutdown {
     });
     this.sweepIntervalMs =
       config.get('SWEEP_INTERVAL_SECONDS', { infer: true }) * 1000;
+    this.retentionIntervalMs =
+      config.get('RETENTION_INTERVAL_MINUTES', { infer: true }) * 60_000;
   }
 
   get running(): boolean {
@@ -75,23 +81,31 @@ export class ResumeWorker implements OnApplicationShutdown {
     this.watch(processing, 'Resume processing');
 
     this.maintenanceQueue = new Queue(MAINTENANCE_QUEUE, { connection });
-    // Idempotent: every worker upserts the same schedule; one sweep runs per interval.
+    // Idempotent: every worker upserts the same schedules, and each run
+    // happens once per interval across all workers.
+    const opts = { removeOnComplete: true, removeOnFail: 100 };
     await this.maintenanceQueue.upsertJobScheduler(
       SWEEP_SCHEDULER_ID,
       { every: this.sweepIntervalMs },
-      { name: 'sweep', opts: { removeOnComplete: true, removeOnFail: 100 } },
+      { name: 'sweep', opts },
+    );
+    await this.maintenanceQueue.upsertJobScheduler(
+      RETENTION_SCHEDULER_ID,
+      { every: this.retentionIntervalMs },
+      { name: 'retention', opts },
     );
     const maintenance = new Worker(
       MAINTENANCE_QUEUE,
-      () => this.sweeper.sweep(),
+      (job) =>
+        job.name === 'retention' ? this.retention.run() : this.sweeper.sweep(),
       { connection, concurrency: 1 },
     );
-    this.watch(maintenance, 'Resume sweep');
+    this.watch(maintenance, 'Maintenance');
 
     this.workers = [processing, maintenance];
     this.logger.log(
       `Processing resumes: concurrency ${this.concurrency}, ` +
-        `up to ${this.ratePerSecond}/s to the screening model, sweep every ${this.sweepIntervalMs / 1000}s`,
+        `up to ${this.ratePerSecond}/s to the screening model, sweep every ${this.sweepIntervalMs / 1000}s, retention every ${this.retentionIntervalMs / 60_000} min`,
     );
   }
 

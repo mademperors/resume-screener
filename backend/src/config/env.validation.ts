@@ -157,6 +157,22 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   FAILED_RESUME_MAX_AUTO_RETRIES: number = 3;
+
+  // --- Data retention ---
+
+  /** Candidate data is deleted this many days after its job is closed or deleted. */
+  @IsInt()
+  @Min(1)
+  RETENTION_DAYS: number = 365;
+
+  /**
+   * How often retention runs; it also retries deleting stored files, so keep
+   * it well under 24 hours.
+   */
+  @IsInt()
+  @Min(1)
+  @Max(720)
+  RETENTION_INTERVAL_MINUTES: number = 60;
 }
 
 export function validateEnv(

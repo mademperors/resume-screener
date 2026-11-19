@@ -3,9 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import type { EnvironmentVariables } from '../config/env.validation.js';
 import { DocumentTextExtractor } from './extraction/document-text-extractor.js';
 import { RuleBasedResumePreprocessor } from './preprocessing/resume-preprocessor.js';
+import { ResumeRemovalModule } from '../resumes/resume-removal.module.js';
 import { ResumeProcessor } from './resume-processor.service.js';
 import { ResumeSweeper } from './resume-sweeper.service.js';
 import { ResumeWorker } from './resume-worker.service.js';
+import { RetentionService } from './retention.service.js';
 import { WeightedScoringEngine } from './scoring/weighted-scoring-engine.js';
 import { JevScreeningModel } from './screening/jev-screening-model.js';
 import { MockScreeningModel } from './screening/mock-screening-model.js';
@@ -22,10 +24,12 @@ import {
  * provider. The screening model is chosen with SCREENING_MODEL.
  */
 @Module({
+  imports: [ResumeRemovalModule],
   providers: [
     ResumeProcessor,
     ResumeSweeper,
     ResumeWorker,
+    RetentionService,
     { provide: TextExtractor, useClass: DocumentTextExtractor },
     { provide: ResumePreprocessor, useClass: RuleBasedResumePreprocessor },
     { provide: ScoringEngine, useClass: WeightedScoringEngine },
@@ -38,6 +42,6 @@ import {
           : new MockScreeningModel(),
     },
   ],
-  exports: [ResumeWorker, ResumeProcessor, ResumeSweeper],
+  exports: [ResumeWorker, ResumeProcessor, ResumeSweeper, RetentionService],
 })
 export class ProcessingModule {}
