@@ -6,8 +6,6 @@ project; MVP demo on 30.11.2026.
 - `backend/`: NestJS API and worker. Complete for the MVP except the real Jev
   model (a deterministic mock stands in).
 - `frontend/`: not started yet.
-- `docs/`: course assignments (PDF), context only. Tasks are tracked in
-  Wrike, folder "03 Розробка".
 
 ## Where to look first
 
