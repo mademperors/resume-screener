@@ -12,6 +12,7 @@ import { databaseOptions } from './database/database.options.js';
 import { HealthController } from './health/health.controller.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { ResumesModule } from './resumes/resumes.module.js';
+import { StorageModule } from './storage/storage.module.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ResumesModule } from './resumes/resumes.module.js';
           config.get('DB_RUN_MIGRATIONS', { infer: true }) === 'true',
         ),
     }),
+    StorageModule,
     AuthModule,
     ApiKeysModule,
     JobsModule,

@@ -13,6 +13,11 @@ export default defineConfig({
       DB_RUN_MIGRATIONS: 'true',
       JWT_SECRET: 'e2e-secret-e2e-secret-e2e-secret-e2e',
       GOOGLE_CLIENT_ID: 'e2e-client-id',
+      // The app uses in-memory storage in e2e tests; storage.e2e-spec.ts
+      // talks to the real store when S3_ENDPOINT and credentials are set.
+      S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? 'e2e-access-key',
+      S3_SECRET_ACCESS_KEY:
+        process.env.S3_SECRET_ACCESS_KEY ?? 'e2e-secret-key',
     },
   },
 });
