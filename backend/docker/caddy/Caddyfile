@@ -1,0 +1,26 @@
+# HTTPS in front of the API and file downloads. For local names Caddy uses
+# its own certificate authority; for real domains it gets certificates from
+# Let's Encrypt automatically (set API_DOMAIN and FILES_DOMAIN in .env).
+# HTTP is redirected to HTTPS.
+
+{$API_DOMAIN:localhost} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	reverse_proxy api:3000
+}
+
+# Short-lived resume download links point here. The Host header is passed
+# through unchanged, which the link signatures depend on.
+{$FILES_DOMAIN:files.localhost} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+	reverse_proxy seaweedfs:8333
+}
