@@ -12,12 +12,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-
-export enum CandidateDecision {
-  Pending = 'Pending',
-  Approved = 'Approved',
-  Rejected = 'Rejected',
-}
+import { CandidateDecision } from '../candidate.entity.js';
 
 export enum CandidateSortField {
   MatchScore = 'matchScore',

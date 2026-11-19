@@ -22,14 +22,6 @@ import {
 import { CurrentPrincipal } from '../common/decorators.js';
 import type { Principal } from '../common/principal.js';
 
-export enum ResumeStatus {
-  Queued = 'Queued',
-  Processing = 'Processing',
-  Processed = 'Processed',
-  ProcessingFailed = 'Processing failed',
-  CouldNotReadFile = 'Could not read file',
-}
-
 export const MAX_RESUME_FILE_BYTES = 10 * 1024 * 1024;
 
 // TODO(3.5): implement with object storage (3.1) and the processing queue (3.7).
