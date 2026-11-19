@@ -51,14 +51,20 @@ npm run migration:generate -- src/database/migrations/DescribeTheChange
    `Processing failed`. A periodic sweep queues stuck resumes again and
    retries temporary failures a few times. Recruiters can retry by hand.
 
-Each stage is an abstract class in `src/processing/stages.ts`, registered in
-`src/processing/processing.module.ts`. The stages are placeholders for now, so
-resumes end as `Processing failed` with a "not fully set up yet" message.
+Each stage is an abstract class in `src/processing/stages.ts`, bound in
+`src/processing/processing.module.ts`:
+
+| Stage | Implementation |
+|---|---|
+| Text extraction | `DocumentTextExtractor`: PDF via pdfjs, DOCX via its XML. Text a reader can't see (white without a dark background, tiny, transparent, invisible, off-page, hidden runs) is kept apart and never evaluated. Under 50 readable characters: "Could not read file". |
+| Preprocessing | `RuleBasedResumePreprocessor`: keeps contacts for the recruiter; removes them, links, age, gender, nationality and similar from the model's text; removes sentences addressed to AI; flags hidden text or such sentences as "Possible manipulation". |
+| Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching plus experience from stated years or job dates. `jev`: `JevScreeningModel`, not implemented yet. |
+| Scoring | `WeightedScoringEngine`: `score = 100 × Σ(weight × confidence if met) / Σ weight`, per-requirement contributions, "Does not meet requirements" (confidently missing a mandatory requirement) and "Needs manual review" (unsure about one). |
 
 ### Connecting Jev
 
 Implement `JevScreeningModel` in
 `src/processing/screening/jev-screening-model.ts`; its comment lists the
 contract (one verdict per requirement with a confidence in 0..1, which errors
-to throw, env variables for secrets). Nothing else needs to change.
-`test/fake-stages.ts` shows a minimal working model.
+to throw, env variables for secrets). Then set `SCREENING_MODEL=jev`. Nothing
+else needs to change. `MockScreeningModel` is a working example.

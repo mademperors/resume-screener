@@ -15,11 +15,12 @@ import type { RequirementSpec } from '../jobs/requirements.js';
 // --- 1. Text extraction (PDF, DOCX) ---
 
 export interface ExtractedDocument {
-  /** All text in reading order, including text that is hidden. */
+  /** Visible text in reading order. */
   text: string;
   /**
-   * Text that a reader wouldn't see (white or tiny font, etc.). Kept apart
-   * so preprocessing can drop it and flag possible manipulation.
+   * Text a reader wouldn't see (white or tiny font, hidden formatting…),
+   * kept out of `text` so it never influences the evaluation. Preprocessing
+   * flags its presence as possible manipulation.
    */
   hiddenText: string[];
 }

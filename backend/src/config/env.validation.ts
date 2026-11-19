@@ -116,6 +116,13 @@ export class EnvironmentVariables {
 
   // --- Workers ---
 
+  /**
+   * Which screening model evaluates resumes: `mock` (keyword matching, for
+   * development and demos) or `jev` (the real model, once implemented).
+   */
+  @IsIn(['mock', 'jev'])
+  SCREENING_MODEL: 'mock' | 'jev' = 'mock';
+
   /** Also process resumes inside the API process (development convenience). */
   @IsIn(['true', 'false'])
   RUN_WORKER_IN_API: 'true' | 'false' = 'false';

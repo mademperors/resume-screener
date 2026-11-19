@@ -1,11 +1,9 @@
 import { StorageUnavailableError } from '../storage/file-storage.js';
-import { PlaceholderTextExtractor } from './placeholder-stages.js';
 import {
   describeFailure,
   exhaustedMessage,
   PermanentProcessingError,
   ScreeningModelUnavailableError,
-  StageNotImplementedError,
   UnreadableFileError,
 } from './processing-errors.js';
 import { JevScreeningModel } from './screening/jev-screening-model.js';
@@ -44,12 +42,8 @@ describe('describeFailure', () => {
   });
 });
 
-describe('placeholder stages', () => {
+describe('JevScreeningModel before it is implemented', () => {
   it('fail permanently with a clear message until implemented', async () => {
-    await expect(
-      Promise.resolve().then(() => new PlaceholderTextExtractor().extract()),
-    ).rejects.toBeInstanceOf(StageNotImplementedError);
-
     const error = await Promise.resolve()
       .then(() =>
         new JevScreeningModel().evaluate({ resumeText: '', requirements: [] }),
