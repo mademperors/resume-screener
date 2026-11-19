@@ -60,6 +60,9 @@ Add `"customRateLimitPerMinute": 5000` for a custom limit, or `null` to remove i
 
 ## Tests
 
+For checking by hand (demo, review, a deployment), follow
+[docs/MANUAL_TESTING.md](docs/MANUAL_TESTING.md).
+
 ```bash
 npm test                      # unit tests
 npm run lint
