@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, IsNull, LessThan, MoreThan } from 'typeorm';
+import { Brackets, DataSource, IsNull, LessThan, MoreThan } from 'typeorm';
+import { Session } from '../auth/session.entity.js';
 import type { EnvironmentVariables } from '../config/env.validation.js';
 import { Job, JobStatus } from '../jobs/job.entity.js';
 import { ResumeRemovalService } from '../resumes/resume-removal.service.js';
@@ -14,6 +15,8 @@ export interface RetentionResult {
   resumesRemoved: number;
   /** Stored files still waiting to be deleted after this run. */
   filesPendingDeletion: number;
+  /** Sign-in sessions that had ended (revoked, expired or idle). */
+  sessionsRemoved: number;
 }
 
 const JOBS_PER_BATCH = 50;
@@ -28,6 +31,7 @@ const JOBS_PER_BATCH = 50;
 export class RetentionService {
   private readonly logger = new Logger(RetentionService.name);
   private readonly retentionMs: number;
+  private readonly sessionIdleMs: number;
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -36,6 +40,8 @@ export class RetentionService {
   ) {
     this.retentionMs =
       config.get('RETENTION_DAYS', { infer: true }) * 86_400_000;
+    this.sessionIdleMs =
+      config.get('SESSION_IDLE_TIMEOUT_MINUTES', { infer: true }) * 60_000;
   }
 
   async run(now = new Date()): Promise<RetentionResult> {
@@ -46,6 +52,7 @@ export class RetentionService {
       closedJobsPurged: 0,
       resumesRemoved: 0,
       filesPendingDeletion: 0,
+      sessionsRemoved: 0,
     };
 
     for (;;) {
@@ -95,6 +102,7 @@ export class RetentionService {
     }
 
     result.filesPendingDeletion = await this.removal.retryPendingDeletions();
+    result.sessionsRemoved = await this.removeEndedSessions(now);
     if (result.resumesRemoved > 0 || result.deletedJobsPurged > 0) {
       this.logger.log(
         `Retention removed ${result.resumesRemoved} resume(s) from ${result.closedJobsPurged} closed and ${result.deletedJobsPurged} deleted job(s)`,
@@ -106,6 +114,32 @@ export class RetentionService {
       );
     }
     return result;
+  }
+
+  /**
+   * Deletes sessions that can no longer be used: signed out, past their
+   * maximum age, or idle longer than the timeout. They hold refresh token
+   * hashes, so there is no reason to keep them.
+   */
+  private async removeEndedSessions(now: Date): Promise<number> {
+    const result = await this.dataSource
+      .createQueryBuilder()
+      .delete()
+      .from(Session)
+      .where(
+        new Brackets((where) =>
+          where
+            .where('"revokedAt" IS NOT NULL')
+            .orWhere('"expiresAt" < :now')
+            .orWhere('"lastActivityAt" < :idleBefore'),
+        ),
+      )
+      .setParameters({
+        now,
+        idleBefore: new Date(now.getTime() - this.sessionIdleMs),
+      })
+      .execute();
+    return result.affected ?? 0;
   }
 
   private async jobsWithResumes(jobIds: string[]): Promise<string[]> {

@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { Session } from './../src/auth/session.entity.js';
 import { Candidate } from './../src/candidates/candidate.entity.js';
 import { Job } from './../src/jobs/job.entity.js';
 import { ResumeProcessor } from './../src/processing/resume-processor.service.js';
@@ -150,5 +151,41 @@ describe.skipIf(!hasDatabase)('Data retention (e2e)', () => {
       lastError: 'storage down',
     });
     await pending.delete(row.id);
+  });
+
+  it('deletes sign-in sessions that have ended and keeps active ones', async () => {
+    const sessionOf = async (accessToken: string) => {
+      const payload = JSON.parse(
+        Buffer.from(accessToken.split('.')[1], 'base64url').toString(),
+      ) as { sid: string };
+      return payload.sid;
+    };
+    const active = await h.signIn('session-active');
+    const signedOut = await h.signIn('session-signed-out');
+    const expired = await h.signIn('session-expired');
+    const idle = await h.signIn('session-idle');
+    await h
+      .http()
+      .post('/api/v1/auth/logout')
+      .set(bearer(signedOut))
+      .expect(204);
+    const sessions = db.getRepository(Session);
+    await sessions.update(await sessionOf(expired), { expiresAt: daysAgo(1) });
+    await sessions.update(await sessionOf(idle), {
+      lastActivityAt: new Date(Date.now() - 2 * 3_600_000),
+    });
+
+    const result = await h.app.get(RetentionService).run();
+    expect(result.sessionsRemoved).toBeGreaterThanOrEqual(3);
+
+    for (const ended of [signedOut, expired, idle]) {
+      expect(
+        await sessions.findOneBy({ id: await sessionOf(ended) }),
+      ).toBeNull();
+    }
+    expect(
+      await sessions.findOneBy({ id: await sessionOf(active) }),
+    ).not.toBeNull();
+    await h.http().get('/api/v1/auth/me').set(bearer(active)).expect(200);
   });
 });
