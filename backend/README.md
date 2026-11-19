@@ -44,6 +44,20 @@ npm run start:worker:dev      # worker (or set RUN_WORKER_IN_API=true)
 
 Start the worker after the API has applied migrations.
 
+## Change a company's plan
+
+Companies are on the `standard` or `extended` plan (API rate limit per key
+from `PLAN_STANDARD_RATE_LIMIT` / `PLAN_EXTENDED_RATE_LIMIT`). The platform
+operator changes plans through the admin API, enabled by setting
+`ADMIN_API_TOKEN` (32+ random characters):
+
+```bash
+curl -H "X-Admin-Token: $ADMIN_API_TOKEN" "https://localhost/api/v1/admin/companies?search=acme.com"
+curl -X PATCH -H "X-Admin-Token: $ADMIN_API_TOKEN" -H "Content-Type: application/json"   -d '{"plan":"extended"}' https://localhost/api/v1/admin/companies/<companyId>/plan
+```
+
+Add `"customRateLimitPerMinute": 5000` for a custom limit, or `null` to remove it.
+
 ## Tests
 
 ```bash

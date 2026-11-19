@@ -20,10 +20,10 @@ The rest of the system is ready; only the model call is missing.
    in `docker-compose.yml`. Never put the key in code.
 3. Set `SCREENING_MODEL=jev`. Set `SCREENING_RATE_LIMIT_PER_SECOND` to Jev's
    API limit.
-4. Calibrate on real resumes:
-   - The "Needs manual review" threshold (0.6, `DEFAULT_MANUAL_REVIEW_CONFIDENCE`
-     in `src/jobs/requirements.ts`).
-   - The weights (required 2, preferred 1, experience 2, `REQUIREMENT_WEIGHTS`).
+4. Calibrate the defaults on real resumes: the "Needs manual review"
+   threshold (0.6) and the weights (required 2, preferred 1, experience 2),
+   in `DEFAULT_SCORING` in `src/jobs/requirements.ts`. Jobs can override
+   them through their `scoring` settings.
 5. Check NFR 6.1: the same resume and job scored several times must stay
    within 5%. If Jev isn't fully deterministic, add a test that runs the
    same input N times.
@@ -49,6 +49,11 @@ The API is complete for every screen in SR 1.5.3; the contract is at
   candidates found" with a Reset filters button when the list is empty.
 - **Requirement changes:** when `PATCH /jobs/{id}` returns
   `rescoreSuggested: true`, offer to call `POST /jobs/{id}/rescore`.
+- **Scoring settings:** the job form can offer an advanced section for
+  `scoring` (weights, per-skill weights, review threshold); the defaults
+  work without it.
+- **Plan:** `GET /auth/me` returns the company's plan and API limit, for an
+  account or API keys page.
 - **Original file:** call `GET /candidates/{id}/resume-file` and open the
   returned `url` (it expires in 5 minutes, so fetch it on click).
 - **CSV export:** download with `fetch` (it needs the auth header) and save
@@ -79,12 +84,10 @@ The API is complete for every screen in SR 1.5.3; the contract is at
 
 | # | Task | Why |
 |---|---|---|
-| 8 | **Changing a company's plan.** Nothing updates `companies.apiRateLimitPerMinute`; it can only be changed in the database. Add an admin endpoint or script when plans exist. | NFR 4.5 ("extended plan") |
-| 9 | **Clean up old sessions.** Expired and revoked rows in `sessions` are never deleted. Add them to the hourly retention run. | Housekeeping |
-| 10 | **Company and user management.** No roles, invitations or company renaming; a company is created automatically per Google Workspace domain or personal account. Enough for the MVP; decide whether recruiters from different domains must share a company. | Product decision |
-| 11 | **Per-job weights and review threshold.** Fixed for now. Make them part of the job form if recruiters need to tune them; versioning already supports it. | NFR 6.2 (optional) |
-| 12 | **Push updates instead of polling.** Optional: Server-Sent Events for progress if polling is too slow or heavy. | NFR 1.4 (optional) |
-| 13 | **Fix the requirements text.** FR 2.1.1 still says email and password; NFR 4.1 and the code use Google sign-in only. | Report consistency |
+| 8 | **Billing.** Plans exist and the operator changes them through the admin API; there is no payment or self-service upgrade. Set `ADMIN_API_TOKEN` in production to use the admin API. | NFR 4.5 |
+| 9 | **Company and user management.** No roles, invitations or company renaming; a company is created automatically per Google Workspace domain or personal account. Enough for the MVP; decide whether recruiters from different domains must share a company. | Product decision |
+| 10 | **Push updates instead of polling.** Optional: Server-Sent Events for progress if polling is too slow or heavy. | NFR 1.4 (optional) |
+| 11 | **Fix the requirements text.** FR 2.1.1 still says email and password; NFR 4.1 and the code use Google sign-in only. | Report consistency |
 
 ### Known limitations to keep in mind
 

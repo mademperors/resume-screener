@@ -1,12 +1,12 @@
 # Backend: what is done
 
-State of the backend as of 19.11.2026 (commits `718beab` to `2bc3218` on `main`).
+State of the backend as of 20.11.2026 (commits `718beab` to `3bee3e2` on `main`).
 Requirement numbers refer to the course reports: functional (ПР-2, "FR"),
 non-functional (ПР-3, "NFR") and system requirements (ПР-4, "SR").
 
 **Summary:** the backend is complete for the MVP except the real Jev model,
 which is replaced by a deterministic mock. It runs with one command in Docker,
-and 123 unit tests plus 61 end-to-end tests pass against real Postgres,
+and 133 unit tests plus 71 end-to-end tests pass against real Postgres,
 Valkey and SeaweedFS.
 
 ## Stack
@@ -33,9 +33,19 @@ Valkey and SeaweedFS.
 - API keys for external systems (`X-API-Key` header): created, listed and
   revoked from the web app only, stored as SHA-256 hashes, shown once.
   Missing or wrong key answers **401**.
-- Rate limit per API key: the company's requests per minute (200 by default),
-  counted in Valkey so it holds across API instances; **429** with
-  `Retry-After` above it. If Valkey is down, requests are let through.
+- Rate limit per API key: counted in Valkey so it holds across API
+  instances; **429** with `Retry-After` above it. If Valkey is down,
+  requests are let through.
+- Plans (NFR 4.5): each company is on the **standard** (200 requests per
+  minute per key) or **extended** plan (1000); both limits are configurable
+  (`PLAN_STANDARD_RATE_LIMIT`, `PLAN_EXTENDED_RATE_LIMIT`). A company can
+  also have a custom limit. `GET /auth/me` shows the plan and the limit in
+  effect.
+- Admin API for the platform operator (`/admin`, header `X-Admin-Token`,
+  enabled by `ADMIN_API_TOKEN`): list plans, find companies, change a
+  company's plan or custom limit. Changes apply on the next request.
+- Sessions that ended (signed out, expired or idle) are deleted by the
+  hourly retention run.
 
 ## Jobs (FR 2.2, 2.3, NFR 6.2)
 
@@ -49,6 +59,11 @@ Valkey and SeaweedFS.
   model it used. After such a change the response says `rescoreSuggested`,
   and `POST /jobs/{id}/rescore` scores the resumes again. Recruiter decisions
   are kept.
+- Each job has its own scoring settings, optional when creating it:
+  weights for required skills (default 2), preferred skills (1) and
+  experience (2), per-skill weights (e.g. Kotlin 4), and the "Needs manual
+  review" confidence threshold (0.6). Changing them creates a new config
+  version and suggests a re-score, like changing requirements.
 - Changing the minimum score only moves candidates above or below the line.
 - Deleting a job is a soft delete; data is purged later by retention.
 
@@ -78,7 +93,7 @@ Each stage is an interface, so it can be replaced without touching the rest.
 | Text extraction | PDF via pdfjs, DOCX from its XML (headers, body, tables, text boxes, footers). Text a reader can't see is set aside and never evaluated: white text without a dark background, tiny, transparent, invisible or off-page text, hidden Word runs. White text on a coloured sidebar counts as visible. Fewer than 50 readable characters (a scan) gives "Could not read file". |
 | Preprocessing | Finds the name, email, phone and location for the recruiter, then removes them, links, and age, gender, nationality and similar from the text the model sees (FR 2.7.3, NFR 5.3). Removes sentences addressed to AI ("ignore previous instructions…", English, Ukrainian, Russian). Hidden text or such sentences flag **Possible manipulation**, with the reason shown on the card. |
 | Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching for skills, and experience from stated years or job dates (education skipped). Returns a verdict and a confidence (0–1) per requirement. `jev`: `JevScreeningModel`, an empty class for the Jev developer. |
-| Scoring | `score = 100 × Σ(weight × confidence, if met) / Σ weight` (required skill 2, preferred skill 1, experience 2). Each requirement's points are stored. Flags: **Does not meet requirements** (confidently missing a mandatory requirement) and **Needs manual review** (confidence under 0.6 on a mandatory requirement). The model never sets the score (NFR 6.3, SR 1.1.8). |
+| Scoring | `score = 100 × Σ(weight × confidence, if met) / Σ weight`, with the job's weights. Each requirement's points are stored. Flags: **Does not meet requirements** (confidently missing a mandatory requirement) and **Needs manual review** (confidence under the job's threshold on a mandatory requirement). The model never sets the score (NFR 6.3, SR 1.1.8). |
 
 The model's result is checked before scoring: one verdict per requirement,
 confidences within 0..1. Same input gives the same result (NFR 6.1).
@@ -162,6 +177,7 @@ external systems send `X-API-Key`.
 | `GET /candidates/{id}/resume-file` | Short-lived link to the original file |
 | `GET /jobs/{id}/candidates/export.csv`, `GET /jobs/{id}/report` | Export and report |
 | `GET /health`, `GET /health/ready` | Health |
+| `GET /admin/plans`, `GET /admin/companies`, `PATCH /admin/companies/{id}/plan` | Plans, for the platform operator (`X-Admin-Token`) |
 
 The full contract, with request and response schemas, is at `/api/docs`
 (JSON at `/api/docs-json`).
