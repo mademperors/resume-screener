@@ -4,6 +4,10 @@ import {
   VersioningType,
 } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+  AllExceptionsFilter,
+  validationExceptionFactory,
+} from './common/http-exception.filter.js';
 
 /** Shared by main.ts and e2e tests so both run the same HTTP setup. */
 export function configureApp(
@@ -17,8 +21,10 @@ export function configureApp(
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: validationExceptionFactory,
     }),
   );
+  app.useGlobalFilters(new AllExceptionsFilter());
   if (corsOrigins) {
     app.enableCors({
       origin: corsOrigins.split(',').map((origin) => origin.trim()),

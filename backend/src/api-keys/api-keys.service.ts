@@ -1,12 +1,9 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { randomToken, safeEqual, sha256Hex } from '../common/crypto.js';
+import { assertOwnedByCompany } from '../common/tenant.js';
 import { ApiKey } from './api-key.entity.js';
 
 // Format: rsk_<12 hex prefix>_<43 base64url secret>
@@ -50,13 +47,11 @@ export class ApiKeysService {
   }
 
   async revoke(companyId: string, id: string): Promise<ApiKey> {
-    const apiKey = await this.apiKeys.findOneBy({ id });
-    if (!apiKey) {
-      throw new NotFoundException('API key not found.');
-    }
-    if (apiKey.companyId !== companyId) {
-      throw new ForbiddenException('You do not have access to this API key.');
-    }
+    const apiKey = assertOwnedByCompany(
+      await this.apiKeys.findOneBy({ id }),
+      companyId,
+      'API key',
+    );
     if (!apiKey.revokedAt) {
       apiKey.revokedAt = new Date();
       await this.apiKeys.save(apiKey);

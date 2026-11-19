@@ -20,8 +20,9 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   DATABASE_URL: string;
 
+  /** Apply pending migrations when the API starts. Workers never run them. */
   @IsIn(['true', 'false'])
-  DB_SYNCHRONIZE: 'true' | 'false' = 'false';
+  DB_RUN_MIGRATIONS: 'true' | 'false' = 'true';
 
   @IsString()
   @MinLength(32)

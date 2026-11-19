@@ -12,7 +12,7 @@ describe('validateEnv', () => {
     const env = validateEnv(required);
     expect(env.PORT).toBe(3000);
     expect(env.SESSION_IDLE_TIMEOUT_MINUTES).toBe(30);
-    expect(env.DB_SYNCHRONIZE).toBe('false');
+    expect(env.DB_RUN_MIGRATIONS).toBe('true');
   });
 
   it('converts numeric strings from the environment', () => {
