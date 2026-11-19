@@ -1,3 +1,5 @@
+import { DataSource } from 'typeorm';
+import { Company } from './../src/companies/company.entity.js';
 import { bearer, createHarness, hasDatabase, type Harness } from './harness.js';
 
 describe.skipIf(!hasDatabase)('Auth and API keys (e2e)', () => {
@@ -96,5 +98,60 @@ describe.skipIf(!hasDatabase)('Auth and API keys (e2e)', () => {
       .delete(`/api/v1/api-keys/${created.body.id}`)
       .set(bearer(stranger))
       .expect(403);
+  });
+
+  it('reports readiness of the database, queue and storage', () =>
+    h
+      .http()
+      .get('/api/v1/health/ready')
+      .expect(200, {
+        status: 'ok',
+        checks: { database: 'up', queue: 'up', storage: 'up' },
+      }));
+
+  it('serves the OpenAPI document', async () => {
+    const response = await h.http().get('/api/docs-json').expect(200);
+    expect(response.body.openapi).toMatch(/^3./);
+    expect(Object.keys(response.body.paths)).toEqual(
+      expect.arrayContaining([
+        '/api/v1/jobs',
+        '/api/v1/jobs/{jobId}/resumes',
+        '/api/v1/jobs/{jobId}/candidates',
+        '/api/v1/jobs/{jobId}/candidates/export.csv',
+        '/api/v1/health/ready',
+      ]),
+    );
+  });
+
+  it("limits an API key to its company's requests per minute, shared in Redis", async () => {
+    const token = await h.signIn('limited');
+    const me = await h
+      .http()
+      .get('/api/v1/auth/me')
+      .set(bearer(token))
+      .expect(200);
+    await h.app
+      .get(DataSource)
+      .getRepository(Company)
+      .update(me.body.company.id, { apiRateLimitPerMinute: 2 });
+    const created = await h
+      .http()
+      .post('/api/v1/api-keys')
+      .set(bearer(token))
+      .send({ name: 'ATS' })
+      .expect(201);
+    const key = created.body.key as string;
+
+    await h.http().get('/api/v1/jobs').set('X-API-Key', key).expect(200);
+    await h.http().get('/api/v1/jobs').set('X-API-Key', key).expect(200);
+    const limited = await h
+      .http()
+      .get('/api/v1/jobs')
+      .set('X-API-Key', key)
+      .expect(429);
+    expect(limited.body.message).toMatch(/limited to 2 requests per minute/);
+    expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
+    // Signed-in users aren't limited.
+    await h.http().get('/api/v1/jobs').set(bearer(token)).expect(200);
   });
 });

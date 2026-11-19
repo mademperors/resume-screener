@@ -23,6 +23,7 @@ import {
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../common/api-errors.decorator.js';
 import { CurrentPrincipal } from '../common/decorators.js';
 import type { Principal } from '../common/principal.js';
 import {
@@ -44,6 +45,7 @@ import {
 @ApiTags('Resumes')
 @ApiBearerAuth()
 @ApiSecurity('api-key')
+@ApiStandardErrors()
 @Controller()
 export class ResumesController {
   constructor(private readonly resumes: ResumesService) {}

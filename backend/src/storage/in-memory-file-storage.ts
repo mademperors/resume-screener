@@ -20,6 +20,8 @@ export class InMemoryFileStorage extends FileStorage {
     this.files.delete(key);
   }
 
+  async checkHealth(): Promise<void> {}
+
   async getDownloadUrl(
     key: string,
     options: { filename: string; expiresInSeconds: number },

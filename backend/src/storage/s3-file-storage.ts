@@ -94,6 +94,13 @@ export class S3FileStorage extends FileStorage implements OnModuleDestroy {
     );
   }
 
+  async checkHealth(): Promise<void> {
+    await this.ensureBucket();
+    await this.send('reach file storage', () =>
+      this.client.send(new HeadBucketCommand({ Bucket: this.options.bucket })),
+    );
+  }
+
   getDownloadUrl(
     key: string,
     options: {

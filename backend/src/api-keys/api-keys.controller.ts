@@ -8,6 +8,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../common/api-errors.decorator.js';
 import { CurrentUser, SessionOnly } from '../common/decorators.js';
 import type { UserPrincipal } from '../common/principal.js';
 import { ApiKeysService } from './api-keys.service.js';
@@ -20,6 +21,7 @@ import {
 @ApiTags('API keys')
 @ApiBearerAuth()
 @SessionOnly()
+@ApiStandardErrors()
 @Controller('api-keys')
 export class ApiKeysController {
   constructor(private readonly apiKeys: ApiKeysService) {}

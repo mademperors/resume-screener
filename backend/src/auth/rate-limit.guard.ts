@@ -3,30 +3,31 @@ import {
   ExecutionContext,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import type { Redis } from 'ioredis';
 import type { AuthenticatedRequest } from '../common/principal.js';
+import { REDIS_CONNECTION } from '../queue/redis.module.js';
 
 const WINDOW_MS = 60_000;
 
-interface Window {
-  startedAt: number;
-  count: number;
-}
-
 /**
  * Global guard, runs after AuthGuard. Limits each API key to its company's
- * requests-per-minute quota (fixed one-minute window) and answers 429 above it.
- *
- * Counters live in process memory, so with several API instances each one
- * counts separately. Move them to Redis when the API is scaled out.
+ * requests-per-minute quota (fixed one-minute windows) and answers 429 above
+ * it. Counters live in Valkey/Redis, so the limit holds across all API
+ * instances. If Redis is unreachable requests are let through rather than
+ * blocking every integration.
  */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
-  private readonly windows = new Map<string, Window>();
+  private readonly logger = new Logger(RateLimitGuard.name);
 
-  canActivate(context: ExecutionContext): boolean {
+  constructor(@Inject(REDIS_CONNECTION) private readonly redis: Redis) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const http = context.switchToHttp();
     const principal = http.getRequest<AuthenticatedRequest>().principal;
     if (principal?.kind !== 'apiKey') {
@@ -34,24 +35,35 @@ export class RateLimitGuard implements CanActivate {
     }
 
     const now = Date.now();
-    let window = this.windows.get(principal.apiKeyId);
-    if (!window || now - window.startedAt >= WINDOW_MS) {
-      window = { startedAt: now, count: 0 };
-      this.windows.set(principal.apiKeyId, window);
+    const window = Math.floor(now / WINDOW_MS);
+    const key = `ratelimit:api-key:${principal.apiKeyId}:${window}`;
+    let count: number;
+    try {
+      const results = await this.redis
+        .multi()
+        .incr(key)
+        .pexpire(key, WINDOW_MS * 2)
+        .exec();
+      const [error, value] = results?.[0] ?? [new Error('No reply'), null];
+      if (error) {
+        throw error;
+      }
+      count = Number(value);
+    } catch (error) {
+      this.logger.warn(
+        `Rate limit check skipped, Redis unavailable: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return true;
     }
-    window.count += 1;
 
     const limit = principal.rateLimitPerMinute;
-    const resetSeconds = Math.ceil((window.startedAt + WINDOW_MS - now) / 1000);
+    const resetSeconds = Math.ceil(((window + 1) * WINDOW_MS - now) / 1000);
     const response = http.getResponse<Response>();
     response.setHeader('X-RateLimit-Limit', limit);
-    response.setHeader(
-      'X-RateLimit-Remaining',
-      Math.max(0, limit - window.count),
-    );
+    response.setHeader('X-RateLimit-Remaining', Math.max(0, limit - count));
     response.setHeader('X-RateLimit-Reset', resetSeconds);
 
-    if (window.count > limit) {
+    if (count > limit) {
       response.setHeader('Retry-After', resetSeconds);
       throw new HttpException(
         `Too many requests: this API key is limited to ${limit} requests per minute. ` +

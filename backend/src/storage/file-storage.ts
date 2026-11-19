@@ -12,6 +12,9 @@ export abstract class FileStorage {
   /** Succeeds when the key is already gone. */
   abstract delete(key: string): Promise<void>;
 
+  /** Throws if storage can't be reached; used by the readiness check. */
+  abstract checkHealth(): Promise<void>;
+
   /** A link that works without other credentials until it expires. */
   abstract getDownloadUrl(
     key: string,

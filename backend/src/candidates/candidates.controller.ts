@@ -18,6 +18,7 @@ import {
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../common/api-errors.decorator.js';
 import { CurrentPrincipal } from '../common/decorators.js';
 import type { Principal } from '../common/principal.js';
 import { CandidatesService, toSummary } from './candidates.service.js';
@@ -32,6 +33,7 @@ import {
 @ApiTags('Candidates')
 @ApiBearerAuth()
 @ApiSecurity('api-key')
+@ApiStandardErrors()
 @Controller()
 export class CandidatesController {
   constructor(private readonly candidates: CandidatesService) {}

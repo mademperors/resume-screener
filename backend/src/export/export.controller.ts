@@ -16,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { Readable } from 'node:stream';
 import { CandidateFiltersDto } from '../candidates/dto/candidate.dto.js';
+import { ApiStandardErrors } from '../common/api-errors.decorator.js';
 import { CurrentPrincipal } from '../common/decorators.js';
 import type { Principal } from '../common/principal.js';
 import { attachmentDisposition } from './csv.js';
@@ -25,6 +26,7 @@ import { ExportService, MAX_EXPORT_ROWS } from './export.service.js';
 @ApiTags('Export')
 @ApiBearerAuth()
 @ApiSecurity('api-key')
+@ApiStandardErrors()
 @Controller()
 export class ExportController {
   constructor(private readonly exports: ExportService) {}

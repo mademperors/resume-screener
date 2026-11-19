@@ -1,6 +1,41 @@
-import { ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+import type { Redis } from 'ioredis';
 import type { Principal } from '../common/principal.js';
 import { RateLimitGuard } from './rate-limit.guard.js';
+
+/** Enough of ioredis for the guard: MULTI with INCR and PEXPIRE. */
+class FakeRedis {
+  readonly counters = new Map<string, number>();
+  down = false;
+
+  multi() {
+    let key = '';
+    const chain = {
+      incr: (k: string) => {
+        key = k;
+        return chain;
+      },
+      pexpire: () => chain,
+      exec: async () => {
+        if (this.down) {
+          throw new Error('connection refused');
+        }
+        const value = (this.counters.get(key) ?? 0) + 1;
+        this.counters.set(key, value);
+        return [
+          [null, value],
+          [null, 1],
+        ];
+      },
+    };
+    return chain;
+  }
+}
 
 function contextFor(principal: Principal | undefined) {
   const headers: Record<string, unknown> = {};
@@ -22,23 +57,25 @@ const apiKey = (id: string, limit = 200): Principal => ({
   rateLimitPerMinute: limit,
 });
 
+function setup() {
+  const redis = new FakeRedis();
+  return { redis, guard: new RateLimitGuard(redis as unknown as Redis) };
+}
+
 describe('RateLimitGuard', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('allows 200 requests per minute and answers 429 on the 201st', () => {
-    const guard = new RateLimitGuard();
+  it('allows 200 requests per minute and answers 429 on the 201st', async () => {
+    const { guard } = setup();
     for (let i = 0; i < 200; i++) {
-      expect(guard.canActivate(contextFor(apiKey('key-1')).context)).toBe(true);
+      expect(await guard.canActivate(contextFor(apiKey('key-1')).context)).toBe(
+        true,
+      );
     }
 
     const { context, headers } = contextFor(apiKey('key-1'));
-    let error: unknown;
-    try {
-      guard.canActivate(context);
-    } catch (caught) {
-      error = caught;
-    }
+    const error = await guard.canActivate(context).catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(HttpException);
     expect((error as HttpException).getStatus()).toBe(
@@ -48,33 +85,53 @@ describe('RateLimitGuard', () => {
     expect(headers['X-RateLimit-Remaining']).toBe(0);
   });
 
-  it('starts a new window after a minute', () => {
-    const guard = new RateLimitGuard();
-    for (let i = 0; i < 3; i++)
-      guard.canActivate(contextFor(apiKey('key-1', 3)).context);
-    expect(() =>
+  it('starts a new window after a minute', async () => {
+    const { guard } = setup();
+    for (let i = 0; i < 3; i++) {
+      await guard.canActivate(contextFor(apiKey('key-1', 3)).context);
+    }
+    await expect(
       guard.canActivate(contextFor(apiKey('key-1', 3)).context),
-    ).toThrow(HttpException);
+    ).rejects.toThrow(HttpException);
 
     vi.advanceTimersByTime(60_000);
 
-    expect(guard.canActivate(contextFor(apiKey('key-1', 3)).context)).toBe(
-      true,
-    );
+    expect(
+      await guard.canActivate(contextFor(apiKey('key-1', 3)).context),
+    ).toBe(true);
   });
 
-  it('counts each key separately and uses its plan limit', () => {
-    const guard = new RateLimitGuard();
-    for (let i = 0; i < 2; i++)
-      guard.canActivate(contextFor(apiKey('key-1', 2)).context);
-
-    expect(guard.canActivate(contextFor(apiKey('key-2', 2)).context)).toBe(
-      true,
-    );
+  it('counts each key separately and uses its plan limit', async () => {
+    const { guard } = setup();
+    for (let i = 0; i < 2; i++) {
+      await guard.canActivate(contextFor(apiKey('key-1', 2)).context);
+    }
+    expect(
+      await guard.canActivate(contextFor(apiKey('key-2', 2)).context),
+    ).toBe(true);
   });
 
-  it('does not limit signed-in users', () => {
-    const guard = new RateLimitGuard();
+  it('shares counters between API instances', async () => {
+    const redis = new FakeRedis();
+    const first = new RateLimitGuard(redis as unknown as Redis);
+    const second = new RateLimitGuard(redis as unknown as Redis);
+    await first.canActivate(contextFor(apiKey('key-1', 1)).context);
+    await expect(
+      second.canActivate(contextFor(apiKey('key-1', 1)).context),
+    ).rejects.toThrow(HttpException);
+  });
+
+  it('lets requests through when Redis is down', async () => {
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const { guard, redis } = setup();
+    redis.down = true;
+    expect(
+      await guard.canActivate(contextFor(apiKey('key-1', 1)).context),
+    ).toBe(true);
+  });
+
+  it('does not limit signed-in users', async () => {
+    const { guard, redis } = setup();
     const user: Principal = {
       kind: 'user',
       userId: 'u',
@@ -82,7 +139,8 @@ describe('RateLimitGuard', () => {
       sessionId: 's',
     };
     for (let i = 0; i < 500; i++) {
-      expect(guard.canActivate(contextFor(user).context)).toBe(true);
+      expect(await guard.canActivate(contextFor(user).context)).toBe(true);
     }
+    expect(redis.counters.size).toBe(0);
   });
 });

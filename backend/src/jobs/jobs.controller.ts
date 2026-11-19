@@ -13,11 +13,13 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiStandardErrors } from '../common/api-errors.decorator.js';
 import { CurrentPrincipal } from '../common/decorators.js';
 import type { Principal } from '../common/principal.js';
 import {
@@ -33,6 +35,7 @@ import { JobsService } from './jobs.service.js';
 @ApiTags('Jobs')
 @ApiBearerAuth()
 @ApiSecurity('api-key')
+@ApiStandardErrors()
 @Controller('jobs')
 export class JobsController {
   constructor(private readonly jobs: JobsService) {}
@@ -54,6 +57,7 @@ export class JobsController {
   @ApiOperation({
     summary: 'Create a job with its requirements and screening filters',
   })
+  @ApiCreatedResponse({ type: JobDto })
   async create(
     @CurrentPrincipal() principal: Principal,
     @Body() dto: CreateJobDto,
@@ -64,6 +68,7 @@ export class JobsController {
 
   @Get(':jobId')
   @ApiOperation({ summary: 'Get a job' })
+  @ApiOkResponse({ type: JobDto })
   async get(
     @CurrentPrincipal() principal: Principal,
     @Param('jobId', ParseUUIDPipe) jobId: string,
@@ -80,6 +85,7 @@ export class JobsController {
     summary:
       'Update a job; requirement changes create a new scoring config version',
   })
+  @ApiOkResponse({ type: UpdatedJobDto })
   async update(
     @CurrentPrincipal() principal: Principal,
     @Param('jobId', ParseUUIDPipe) jobId: string,
@@ -108,6 +114,7 @@ export class JobsController {
   @Post(':jobId/close')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Close a job; it stops accepting resumes' })
+  @ApiOkResponse({ type: JobDto })
   async close(
     @CurrentPrincipal() principal: Principal,
     @Param('jobId', ParseUUIDPipe) jobId: string,
@@ -123,6 +130,7 @@ export class JobsController {
   @Post(':jobId/reopen')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reopen a closed job' })
+  @ApiOkResponse({ type: JobDto })
   async reopen(
     @CurrentPrincipal() principal: Principal,
     @Param('jobId', ParseUUIDPipe) jobId: string,
