@@ -20,19 +20,27 @@ export const hasDatabase = Boolean(process.env.DATABASE_URL);
 export interface Harness {
   app: INestApplication<App>;
   storage: InMemoryFileStorage;
+  /** Records tasks unless the harness uses the real queue. */
   queue: RecordingProcessingQueue;
   http: () => ReturnType<typeof request>;
   /** Signs in a new user with their own company; returns an access token. */
   signIn: (who: string) => Promise<string>;
 }
 
+export interface HarnessOptions {
+  /** Use the real BullMQ queue (needs Valkey/Redis) instead of recording tasks. */
+  realQueue?: boolean;
+  /** Override further providers, e.g. the pipeline stages. */
+  customize?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+}
+
 /**
- * Boots the full API against the real database with Google sign-in faked
- * files kept in memory and queued tasks recorded instead of processed.
- * `customize` can override further providers (storage, queue…).
+ * Boots the full API against the real database with Google sign-in faked,
+ * files kept in memory and, by default, queued tasks recorded instead of
+ * processed.
  */
 export async function createHarness(
-  customize?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
+  options: HarnessOptions = {},
 ): Promise<Harness> {
   // Imported lazily: loading AppModule validates env, which fails without a database.
   const { AppModule } = await import('./../src/app.module.js');
@@ -52,11 +60,12 @@ export async function createHarness(
     .overrideProvider(GoogleTokenVerifier)
     .useValue(fakeGoogle)
     .overrideProvider(FileStorage)
-    .useValue(storage)
-    .overrideProvider(ProcessingQueue)
-    .useValue(queue);
-  if (customize) {
-    builder = customize(builder);
+    .useValue(storage);
+  if (!options.realQueue) {
+    builder = builder.overrideProvider(ProcessingQueue).useValue(queue);
+  }
+  if (options.customize) {
+    builder = options.customize(builder);
   }
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<INestApplication<App>>();

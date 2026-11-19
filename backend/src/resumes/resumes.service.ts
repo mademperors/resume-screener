@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'node:crypto';
 import { In, Repository } from 'typeorm';
 import type { Principal } from '../common/principal.js';
+import { assertOwnedByCompany } from '../common/tenant.js';
 import { JobStatus, type Job } from '../jobs/job.entity.js';
 import { JobsService } from '../jobs/jobs.service.js';
 import { ProcessingQueue, type ResumeTask } from '../queue/processing-queue.js';
@@ -144,6 +145,78 @@ export class ResumesService {
     return { items, total };
   }
 
+  /** Queues one failed resume again. */
+  async retry(companyId: string, resumeId: string): Promise<Resume> {
+    const resume = assertOwnedByCompany(
+      await this.resumes.findOneBy({ id: resumeId }),
+      companyId,
+      'resume',
+    );
+    if (resume.status === ResumeStatus.CouldNotReadFile) {
+      throw new ConflictException(
+        'This file could not be read, so retrying will not help. Upload a text-based PDF or DOCX instead.',
+      );
+    }
+    if (resume.status !== ResumeStatus.ProcessingFailed) {
+      throw new ConflictException(
+        'Only resumes that failed processing can be retried.',
+      );
+    }
+    const job = await this.jobs.getOwned(companyId, resume.jobId);
+    await this.requeue(job, [ResumeStatus.ProcessingFailed], resume.id);
+    return this.resumes.findOneByOrFail({ id: resume.id });
+  }
+
+  /** Queues all of the job's failed resumes again. */
+  async retryFailed(companyId: string, jobId: string): Promise<number> {
+    const job = await this.jobs.getOwned(companyId, jobId);
+    return this.requeue(job, [ResumeStatus.ProcessingFailed]);
+  }
+
+  /**
+   * Scores the job's resumes again with its current requirements. Unreadable
+   * files and resumes still waiting are left as they are; waiting ones will
+   * use the current requirements anyway.
+   */
+  async rescore(companyId: string, jobId: string): Promise<number> {
+    const job = await this.jobs.getOwned(companyId, jobId);
+    return this.requeue(job, [
+      ResumeStatus.Processed,
+      ResumeStatus.ProcessingFailed,
+    ]);
+  }
+
+  private async requeue(
+    job: Job,
+    fromStatuses: ResumeStatus[],
+    resumeId?: string,
+  ): Promise<number> {
+    const query = this.resumes
+      .createQueryBuilder()
+      .update(Resume)
+      .set({
+        status: ResumeStatus.Queued,
+        queuedAt: () => 'now()',
+        autoRetryCount: 0,
+        lastError: null,
+        lastErrorRetryable: false,
+      })
+      .where('jobId = :jobId', { jobId: job.id })
+      .andWhere('status IN (:...fromStatuses)', { fromStatuses });
+    if (resumeId) {
+      query.andWhere('id = :resumeId', { resumeId });
+    }
+    const result = await query.returning(['id']).execute();
+    const ids = (result.raw as { id: string }[]).map((row) => row.id);
+    await this.enqueueOrLeaveForSweep(
+      ids.map((id) => ({
+        resumeId: id,
+        configVersionId: job.currentConfigVersionId ?? '',
+      })),
+    );
+    return ids.length;
+  }
+
   /** Stores the file and records it; returns null if either step fails. */
   private async store(
     job: Job,
@@ -173,6 +246,7 @@ export class ResumesService {
           attempts: 0,
           autoRetryCount: 0,
           lastError: null,
+          lastErrorRetryable: false,
           queuedAt: new Date(),
           processingStartedAt: null,
           processedAt: null,

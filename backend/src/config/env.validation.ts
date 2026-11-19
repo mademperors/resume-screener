@@ -113,6 +113,43 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(100)
   PROCESSING_BACKOFF_MS: number = 10_000;
+
+  // --- Workers ---
+
+  /** Also process resumes inside the API process (development convenience). */
+  @IsIn(['true', 'false'])
+  RUN_WORKER_IN_API: 'true' | 'false' = 'false';
+
+  /** Resumes processed in parallel by one worker process. */
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  WORKER_CONCURRENCY: number = 4;
+
+  /** Resumes sent to the screening model per second, across all workers. */
+  @IsInt()
+  @Min(1)
+  SCREENING_RATE_LIMIT_PER_SECOND: number = 10;
+
+  /** How often stuck and failed resumes are checked. */
+  @IsInt()
+  @Min(5)
+  SWEEP_INTERVAL_SECONDS: number = 60;
+
+  /** Queued or Processing longer than this counts as stuck and is queued again. */
+  @IsInt()
+  @Min(1)
+  STALE_RESUME_MINUTES: number = 15;
+
+  /** Retry resumes that failed for a temporary reason after this long; 0 turns it off. */
+  @IsInt()
+  @Min(0)
+  FAILED_RESUME_RETRY_AFTER_MINUTES: number = 60;
+
+  /** Automatic retries per failed resume. */
+  @IsInt()
+  @Min(0)
+  FAILED_RESUME_MAX_AUTO_RETRIES: number = 3;
 }
 
 export function validateEnv(

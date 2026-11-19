@@ -1,38 +1,24 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CandidatesModule } from './candidates/candidates.module.js';
-import {
-  validateEnv,
-  type EnvironmentVariables,
-} from './config/env.validation.js';
-import { databaseOptions } from './database/database.options.js';
 import { HealthController } from './health/health.controller.js';
+import { infrastructureImports } from './infrastructure.js';
 import { JobsModule } from './jobs/jobs.module.js';
-import { QueueModule } from './queue/queue.module.js';
+import { ProcessingModule } from './processing/processing.module.js';
 import { ResumesModule } from './resumes/resumes.module.js';
-import { StorageModule } from './storage/storage.module.js';
 
+/** The HTTP API. Background processing runs in WorkerModule (src/worker.ts). */
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) =>
-        databaseOptions(
-          config.get('DATABASE_URL', { infer: true }),
-          config.get('DB_RUN_MIGRATIONS', { infer: true }) === 'true',
-        ),
-    }),
-    StorageModule,
-    QueueModule,
+    ...infrastructureImports('api'),
     AuthModule,
     ApiKeysModule,
     JobsModule,
     ResumesModule,
     CandidatesModule,
+    // Started only when RUN_WORKER_IN_API=true (see main.ts).
+    ProcessingModule,
   ],
   controllers: [HealthController],
 })

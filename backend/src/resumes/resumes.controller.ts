@@ -26,6 +26,7 @@ import { CurrentPrincipal } from '../common/decorators.js';
 import type { Principal } from '../common/principal.js';
 import {
   ListResumesQueryDto,
+  RequeueResultDto,
   ResumeDto,
   ResumePageDto,
   UploadResultDto,
@@ -127,21 +128,43 @@ export class ResumesController {
 
   @Post('jobs/:jobId/resumes/retry-failed')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: "Re-queue all of the job's failed resumes" })
-  retryFailed(
-    @CurrentPrincipal() _principal: Principal,
-    @Param('jobId', ParseUUIDPipe) _jobId: string,
-  ) {
-    throw new NotImplementedException();
+  @ApiOperation({ summary: "Queue all of the job's failed resumes again" })
+  @ApiAcceptedResponse({ type: RequeueResultDto })
+  async retryFailed(
+    @CurrentPrincipal() principal: Principal,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+  ): Promise<RequeueResultDto> {
+    return {
+      queued: await this.resumes.retryFailed(principal.companyId, jobId),
+    };
+  }
+
+  @Post('jobs/:jobId/rescore')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: "Score the job's resumes again with its current requirements",
+    description:
+      'Use after changing requirements (PATCH /jobs/{jobId} returns rescoreSuggested). ' +
+      'Recruiter decisions on candidates are kept.',
+  })
+  @ApiAcceptedResponse({ type: RequeueResultDto })
+  async rescore(
+    @CurrentPrincipal() principal: Principal,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+  ): Promise<RequeueResultDto> {
+    return { queued: await this.resumes.rescore(principal.companyId, jobId) };
   }
 
   @Post('resumes/:resumeId/retry')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Re-queue one failed resume' })
-  retry(
-    @CurrentPrincipal() _principal: Principal,
-    @Param('resumeId', ParseUUIDPipe) _resumeId: string,
-  ) {
-    throw new NotImplementedException();
+  @ApiOperation({ summary: 'Queue one failed resume again' })
+  @ApiAcceptedResponse({ type: ResumeDto })
+  async retry(
+    @CurrentPrincipal() principal: Principal,
+    @Param('resumeId', ParseUUIDPipe) resumeId: string,
+  ): Promise<ResumeDto> {
+    return ResumeDto.from(
+      await this.resumes.retry(principal.companyId, resumeId),
+    );
   }
 }

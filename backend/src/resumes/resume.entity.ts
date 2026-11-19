@@ -79,6 +79,13 @@ export class Resume {
   @Column({ type: 'text', nullable: true })
   lastError: string | null;
 
+  /**
+   * The last failure may be temporary (e.g. the model was down), so the
+   * periodic task may retry it. False for failures retrying won't fix.
+   */
+  @Column({ type: 'boolean', default: false })
+  lastErrorRetryable: boolean;
+
   @Column({ type: 'timestamptz' })
   queuedAt: Date;
 

@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotImplementedException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -134,18 +133,5 @@ export class JobsController {
       JobStatus.Open,
     );
     return JobDto.from(job, configVersion);
-  }
-
-  @Post(':jobId/rescore')
-  @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({
-    summary: "Re-score the job's candidates after its requirements changed",
-  })
-  rescore(
-    @CurrentPrincipal() _principal: Principal,
-    @Param('jobId', ParseUUIDPipe) _jobId: string,
-  ) {
-    // Implemented with the processing queue (phase 5).
-    throw new NotImplementedException();
   }
 }

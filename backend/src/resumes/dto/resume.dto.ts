@@ -142,3 +142,8 @@ export class ResumePageDto {
   @ApiProperty()
   pageSize: number;
 }
+
+export class RequeueResultDto {
+  @ApiProperty({ description: 'Resumes queued for processing again.' })
+  queued: number;
+}
