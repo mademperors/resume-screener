@@ -3,7 +3,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotImplementedException,
+  Delete,
   Param,
   ParseUUIDPipe,
   Post,
@@ -16,6 +16,7 @@ import {
   ApiAcceptedResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiNoContentResponse,
   ApiConsumes,
   ApiOkResponse,
   ApiOperation,
@@ -26,6 +27,7 @@ import { CurrentPrincipal } from '../common/decorators.js';
 import type { Principal } from '../common/principal.js';
 import {
   ListResumesQueryDto,
+  ProgressDto,
   RequeueResultDto,
   ResumeDto,
   ResumePageDto,
@@ -104,13 +106,15 @@ export class ResumesController {
     @Param('jobId', ParseUUIDPipe) jobId: string,
     @Query() query: ListResumesQueryDto,
   ): Promise<ResumePageDto> {
-    const { items, total } = await this.resumes.list(
+    const { items, total, candidateIds } = await this.resumes.list(
       principal.companyId,
       jobId,
       query,
     );
     return {
-      items: items.map((resume) => ResumeDto.from(resume)),
+      items: items.map((resume) =>
+        ResumeDto.from(resume, candidateIds.get(resume.id) ?? null),
+      ),
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -118,12 +122,29 @@ export class ResumesController {
   }
 
   @Get('jobs/:jobId/progress')
-  @ApiOperation({ summary: 'Processing counters: processed, queued, failed' })
+  @ApiOperation({
+    summary: 'Processing counters: processed, queued, failed',
+    description: 'Poll every few seconds while done is false.',
+  })
+  @ApiOkResponse({ type: ProgressDto })
   progress(
-    @CurrentPrincipal() _principal: Principal,
-    @Param('jobId', ParseUUIDPipe) _jobId: string,
-  ) {
-    throw new NotImplementedException();
+    @CurrentPrincipal() principal: Principal,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+  ): Promise<ProgressDto> {
+    return this.resumes.progress(principal.companyId, jobId);
+  }
+
+  @Delete('resumes/:resumeId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Permanently delete a resume with its candidate and file',
+  })
+  @ApiNoContentResponse()
+  remove(
+    @CurrentPrincipal() principal: Principal,
+    @Param('resumeId', ParseUUIDPipe) resumeId: string,
+  ): Promise<void> {
+    return this.resumes.remove(principal.companyId, resumeId);
   }
 
   @Post('jobs/:jobId/resumes/retry-failed')

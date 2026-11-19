@@ -114,7 +114,15 @@ export class ResumeDto {
   @ApiProperty({ type: String, format: 'date-time', nullable: true })
   processedAt: Date | null;
 
-  static from(resume: Resume): ResumeDto {
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'The candidate created from this resume, once processed.',
+  })
+  candidateId: string | null;
+
+  static from(resume: Resume, candidateId: string | null = null): ResumeDto {
     return {
       id: resume.id,
       jobId: resume.jobId,
@@ -125,6 +133,7 @@ export class ResumeDto {
       lastError: resume.lastError,
       uploadedAt: resume.createdAt,
       processedAt: resume.processedAt,
+      candidateId,
     };
   }
 }
@@ -146,4 +155,33 @@ export class ResumePageDto {
 export class RequeueResultDto {
   @ApiProperty({ description: 'Resumes queued for processing again.' })
   queued: number;
+}
+
+export class ProgressDto {
+  @ApiProperty({ description: 'All resumes of the job.' })
+  total: number;
+
+  @ApiProperty({ description: 'Waiting to be processed.' })
+  queued: number;
+
+  @ApiProperty({ description: 'Being processed now.' })
+  processing: number;
+
+  @ApiProperty()
+  processed: number;
+
+  @ApiProperty({ description: 'processingFailed + couldNotRead.' })
+  failed: number;
+
+  @ApiProperty()
+  processingFailed: number;
+
+  @ApiProperty()
+  couldNotRead: number;
+
+  @ApiProperty({ description: 'Nothing left to process.' })
+  done: boolean;
+
+  @ApiProperty({ example: 'Processed 48 of 50, 2 failed' })
+  summary: string;
 }

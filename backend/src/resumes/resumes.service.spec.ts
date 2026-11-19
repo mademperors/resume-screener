@@ -7,8 +7,13 @@ import { ProcessingQueue, type ResumeTask } from '../queue/processing-queue.js';
 import { InMemoryFileStorage } from '../storage/in-memory-file-storage.js';
 import { MAX_RESUME_FILE_BYTES } from './file-type.js';
 import { DOCX_BYTES, PDF_BYTES } from './resume-fixtures.js';
+import type { ResumeRemovalService } from './resume-removal.service.js';
 import { ResumeStatus, type Resume } from './resume.entity.js';
-import { ResumesService, type UploadedFile } from './resumes.service.js';
+import {
+  progressSummary,
+  ResumesService,
+  type UploadedFile,
+} from './resumes.service.js';
 
 const principal: Principal = {
   kind: 'user',
@@ -61,6 +66,7 @@ function setup(jobOverrides: Partial<Job> = {}) {
     jobs as unknown as JobsService,
     storage,
     queue,
+    {} as ResumeRemovalService,
   );
   return { service, rows, repo, storage, queue };
 }
@@ -238,5 +244,16 @@ describe('ResumesService.upload', () => {
     await expect(
       service.upload(principal, 'job-1', [file('a.pdf', PDF_BYTES)], 'skip'),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('progressSummary', () => {
+  it('reads like the requirements example', () => {
+    expect(progressSummary(50, 48, 2, true)).toBe(
+      'Processed 48 of 50, 2 failed',
+    );
+    expect(progressSummary(50, 50, 0, true)).toBe('Processed 50 of 50');
+    expect(progressSummary(50, 10, 1, false)).toBe('Processing: 11 of 50 done');
+    expect(progressSummary(0, 0, 0, true)).toBe('No resumes uploaded yet');
   });
 });

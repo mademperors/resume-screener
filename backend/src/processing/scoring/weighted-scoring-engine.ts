@@ -59,6 +59,13 @@ export class WeightedScoringEngine extends ScoringEngine {
       },
     );
 
+    const exactTotal = config.requirements.reduce((sum, requirement) => {
+      const verdict = verdicts.get(requirement.id);
+      return verdict?.met && totalWeight > 0
+        ? sum + (100 * requirement.weight * verdict.confidence) / totalWeight
+        : sum;
+    }, 0);
+
     const threshold = config.manualReviewConfidenceThreshold;
     const mandatory = contributions.filter((c) => c.mandatory);
     const flags: CandidateFlag[] = [];
@@ -76,12 +83,8 @@ export class WeightedScoringEngine extends ScoringEngine {
       config.requirements.filter((r) => r.kind === 'skill').map((r) => r.id),
     );
     return {
-      matchScore: round(
-        Math.min(
-          100,
-          contributions.reduce((sum, c) => sum + c.points, 0),
-        ),
-      ),
+      // Summed from exact values; rounding each part first would drift.
+      matchScore: round(Math.min(100, exactTotal)),
       contributions,
       flags,
       foundSkills: screening.skills,

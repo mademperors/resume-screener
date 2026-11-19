@@ -83,6 +83,10 @@ export class Evaluation {
   @Column('text', { array: true, default: () => "'{}'" })
   flags: CandidateFlag[];
 
+  /** Why the resume was flagged, e.g. "Hidden text found…". */
+  @Column('text', { array: true, default: () => "'{}'" })
+  notes: string[];
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 }

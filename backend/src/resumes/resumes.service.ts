@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'node:crypto';
 import { In, Repository } from 'typeorm';
+import { Candidate } from '../candidates/candidate.entity.js';
 import type { Principal } from '../common/principal.js';
 import { assertOwnedByCompany } from '../common/tenant.js';
 import { JobStatus, type Job } from '../jobs/job.entity.js';
@@ -17,6 +18,7 @@ import type {
   DuplicateHandling,
   FileUploadResultDto,
   UploadResultDto,
+  ProgressDto,
 } from './dto/resume.dto.js';
 import {
   cleanFilename,
@@ -24,6 +26,7 @@ import {
   MAX_RESUME_FILE_BYTES,
   RESUME_MIME_TYPES,
 } from './file-type.js';
+import { ResumeRemovalService } from './resume-removal.service.js';
 import { Resume, ResumeStatus } from './resume.entity.js';
 
 /** What the upload needs from a multipart file. */
@@ -44,6 +47,7 @@ export class ResumesService {
     private readonly jobs: JobsService,
     private readonly storage: FileStorage,
     private readonly queue: ProcessingQueue,
+    private readonly removal: ResumeRemovalService,
   ) {}
 
   /**
@@ -134,7 +138,11 @@ export class ResumesService {
     companyId: string,
     jobId: string,
     options: { status?: ResumeStatus; page: number; pageSize: number },
-  ): Promise<{ items: Resume[]; total: number }> {
+  ): Promise<{
+    items: Resume[];
+    total: number;
+    candidateIds: Map<string, string>;
+  }> {
     await this.jobs.getOwned(companyId, jobId);
     const [items, total] = await this.resumes.findAndCount({
       where: { jobId, ...(options.status ? { status: options.status } : {}) },
@@ -142,7 +150,61 @@ export class ResumesService {
       skip: (options.page - 1) * options.pageSize,
       take: options.pageSize,
     });
-    return { items, total };
+    const candidates = items.length
+      ? await this.resumes.manager.find(Candidate, {
+          where: { resumeId: In(items.map((r) => r.id)) },
+          select: { id: true, resumeId: true },
+        })
+      : [];
+    return {
+      items,
+      total,
+      candidateIds: new Map(candidates.map((c) => [c.resumeId, c.id])),
+    };
+  }
+
+  /** Counters for the upload screen, e.g. "Processed 48 of 50, 2 failed". */
+  async progress(companyId: string, jobId: string): Promise<ProgressDto> {
+    await this.jobs.getOwned(companyId, jobId);
+    const rows = await this.resumes
+      .createQueryBuilder('resume')
+      .select('resume.status', 'status')
+      .addSelect('COUNT(*)::int', 'count')
+      .where('resume.jobId = :jobId', { jobId })
+      .groupBy('resume.status')
+      .getRawMany<{ status: ResumeStatus; count: number }>();
+    const count = (status: ResumeStatus) =>
+      rows.find((row) => row.status === status)?.count ?? 0;
+
+    const queued = count(ResumeStatus.Queued);
+    const processing = count(ResumeStatus.Processing);
+    const processed = count(ResumeStatus.Processed);
+    const failed = count(ResumeStatus.ProcessingFailed);
+    const unreadable = count(ResumeStatus.CouldNotReadFile);
+    const total = queued + processing + processed + failed + unreadable;
+    const done = queued + processing === 0;
+    return {
+      total,
+      queued,
+      processing,
+      processed,
+      failed: failed + unreadable,
+      processingFailed: failed,
+      couldNotRead: unreadable,
+      done,
+      summary: progressSummary(total, processed, failed + unreadable, done),
+    };
+  }
+
+  /** Deletes a resume with its candidate, if any, and its file. */
+  async remove(companyId: string, resumeId: string): Promise<void> {
+    const resume = assertOwnedByCompany(
+      await this.resumes.findOneBy({ id: resumeId }),
+      companyId,
+      'resume',
+    );
+    await this.jobs.getOwned(companyId, resume.jobId);
+    await this.removal.removeResumes({ ids: [resume.id] });
   }
 
   /** Queues one failed resume again. */
@@ -288,6 +350,24 @@ export class ResumesService {
       );
     }
   }
+}
+
+export function progressSummary(
+  total: number,
+  processed: number,
+  failed: number,
+  done: boolean,
+): string {
+  if (total === 0) {
+    return 'No resumes uploaded yet';
+  }
+  if (!done) {
+    return `Processing: ${processed + failed} of ${total} done`;
+  }
+  return (
+    `Processed ${processed} of ${total}` +
+    (failed > 0 ? `, ${failed} failed` : '')
+  );
 }
 
 function sha256(buffer: Buffer): string {

@@ -222,6 +222,7 @@ export class ResumeProcessor {
           foundSkills: score.foundSkills,
           missingSkills: score.missingSkills,
           flags,
+          notes: prepared.manipulationNotes,
         }),
       );
       await manager.update(Candidate, candidate.id, {
