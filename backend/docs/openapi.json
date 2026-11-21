@@ -1,0 +1,4029 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "HealthController_check_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness: the API process is running",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Readiness: database, queue and file storage are reachable",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/auth/google": {
+      "post": {
+        "operationId": "AuthController_signInWithGoogle_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleSignInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Sign in with a Google ID token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Exchange a refresh token for new tokens",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_signOut_v1",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "End the current session",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Current user and company",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/api-keys": {
+      "get": {
+        "operationId": "ApiKeysController_list_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the company's API keys",
+        "tags": [
+          "API keys"
+        ]
+      },
+      "post": {
+        "operationId": "ApiKeysController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create an API key (the full key is returned only once)",
+        "tags": [
+          "API keys"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "operationId": "ApiKeysController_revoke_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke an API key; it stops working immediately",
+        "tags": [
+          "API keys"
+        ]
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "operationId": "JobsController_list_v1",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JobDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the company's jobs, newest first",
+        "tags": [
+          "Jobs"
+        ]
+      },
+      "post": {
+        "operationId": "JobsController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateJobDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a job with its requirements and screening filters",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}": {
+      "get": {
+        "operationId": "JobsController_get_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a job",
+        "tags": [
+          "Jobs"
+        ]
+      },
+      "patch": {
+        "operationId": "JobsController_update_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateJobDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatedJobDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a job; requirement changes create a new scoring config version",
+        "tags": [
+          "Jobs"
+        ]
+      },
+      "delete": {
+        "operationId": "JobsController_remove_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a job",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/close": {
+      "post": {
+        "operationId": "JobsController_close_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Close a job; it stops accepting resumes",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/reopen": {
+      "post": {
+        "operationId": "JobsController_reopen_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reopen a closed job",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/resumes": {
+      "post": {
+        "description": "Every file gets its own result. A rejected or duplicate file does not stop the others.",
+        "operationId": "ResumesController_upload_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "onDuplicate",
+            "required": false,
+            "in": "query",
+            "description": "What to do with a file already uploaded to this job: skip it (and report it as a duplicate) or upload it again.",
+            "schema": {
+              "default": "skip",
+              "type": "string",
+              "enum": [
+                "skip",
+                "keep"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "files"
+                ],
+                "properties": {
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    },
+                    "description": "PDF or DOCX, up to 10 MB each, at most 20 per request."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Upload resumes; each accepted file is queued for processing",
+        "tags": [
+          "Resumes"
+        ]
+      },
+      "get": {
+        "operationId": "ResumesController_list_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Queued",
+                "Processing",
+                "Processed",
+                "Processing failed",
+                "Could not read file"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumePageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the job's resumes with their processing status, newest first",
+        "tags": [
+          "Resumes"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/progress": {
+      "get": {
+        "description": "Poll every few seconds while done is false.",
+        "operationId": "ResumesController_progress_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Processing counters: processed, queued, failed",
+        "tags": [
+          "Resumes"
+        ]
+      }
+    },
+    "/api/v1/resumes/{resumeId}": {
+      "delete": {
+        "operationId": "ResumesController_remove_v1",
+        "parameters": [
+          {
+            "name": "resumeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Permanently delete a resume with its candidate and file",
+        "tags": [
+          "Resumes"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/resumes/retry-failed": {
+      "post": {
+        "operationId": "ResumesController_retryFailed_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequeueResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Queue all of the job's failed resumes again",
+        "tags": [
+          "Resumes"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/rescore": {
+      "post": {
+        "description": "Use after changing requirements (PATCH /jobs/{jobId} returns rescoreSuggested). Recruiter decisions on candidates are kept.",
+        "operationId": "ResumesController_rescore_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequeueResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Score the job's resumes again with its current requirements",
+        "tags": [
+          "Resumes"
+        ]
+      }
+    },
+    "/api/v1/resumes/{resumeId}/retry": {
+      "post": {
+        "operationId": "ResumesController_retry_v1",
+        "parameters": [
+          {
+            "name": "resumeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Queue one failed resume again",
+        "tags": [
+          "Resumes"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/candidates": {
+      "get": {
+        "description": "Sorted by match score (highest first) by default. Candidates below the job's minimum score are listed after the others, not removed.",
+        "operationId": "CandidatesController_list_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skills",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated; the candidate must have all of them.",
+            "schema": {
+              "example": "TypeScript,PostgreSQL",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "minExperience",
+            "required": false,
+            "in": "query",
+            "description": "Years.",
+            "schema": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "minScore",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "hasWarnings",
+            "required": false,
+            "in": "query",
+            "description": "true: only flagged candidates; false: only unflagged.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Pending",
+                "Approved",
+                "Rejected"
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Candidates below the job minimum score always come after the others.",
+            "schema": {
+              "default": "matchScore",
+              "type": "string",
+              "enum": [
+                "matchScore",
+                "name",
+                "experience",
+                "warnings",
+                "status"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidatePageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ranked, filterable candidate list",
+        "tags": [
+          "Candidates"
+        ]
+      }
+    },
+    "/api/v1/candidates/{candidateId}": {
+      "get": {
+        "operationId": "CandidatesController_get_v1",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Candidate card: contacts, score, found and missing skills, each requirement and its contribution, warnings",
+        "tags": [
+          "Candidates"
+        ]
+      },
+      "delete": {
+        "operationId": "CandidatesController_remove_v1",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Permanently delete a candidate with their resume file and evaluations",
+        "tags": [
+          "Candidates"
+        ]
+      }
+    },
+    "/api/v1/candidates/{candidateId}/status": {
+      "patch": {
+        "operationId": "CandidatesController_updateStatus_v1",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCandidateStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the decision: Approved, Rejected or Pending",
+        "tags": [
+          "Candidates"
+        ]
+      }
+    },
+    "/api/v1/candidates/{candidateId}/resume-file": {
+      "get": {
+        "operationId": "CandidatesController_resumeFile_v1",
+        "parameters": [
+          {
+            "name": "candidateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLinkDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Short-lived link to the original resume file",
+        "tags": [
+          "Candidates"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/candidates/export.csv": {
+      "get": {
+        "description": "Same filters and order as the candidate list; up to 10000 rows. An empty list gives just the header row.",
+        "operationId": "ExportController_exportCsv_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skills",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated; the candidate must have all of them.",
+            "schema": {
+              "example": "TypeScript,PostgreSQL",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "minExperience",
+            "required": false,
+            "in": "query",
+            "description": "Years.",
+            "schema": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "minScore",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "hasWarnings",
+            "required": false,
+            "in": "query",
+            "description": "true: only flagged candidates; false: only unflagged.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Pending",
+                "Approved",
+                "Rejected"
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Candidates below the job minimum score always come after the others.",
+            "schema": {
+              "default": "matchScore",
+              "type": "string",
+              "enum": [
+                "matchScore",
+                "name",
+                "experience",
+                "warnings",
+                "status"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "UTF-8 CSV with a byte order mark."
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Export the filtered candidate list as CSV",
+        "tags": [
+          "Export"
+        ]
+      }
+    },
+    "/api/v1/jobs/{jobId}/report": {
+      "get": {
+        "description": "Processing counts, candidate statistics, how many candidates meet each requirement, and the top candidates.",
+        "operationId": "ExportController_report_v1",
+        "parameters": [
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, session expired, or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The record belongs to another company, or the action isn't allowed with an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "API key over its requests-per-minute limit; see Retry-After.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Summary report for a job, for printing",
+        "tags": [
+          "Export"
+        ]
+      }
+    },
+    "/api/v1/admin/plans": {
+      "get": {
+        "operationId": "AdminController_listPlans_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanLimitDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Admin-Token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ADMIN_API_TOKEN is not set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-token": []
+          }
+        ],
+        "summary": "Plans and their API rate limits",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/companies": {
+      "get": {
+        "operationId": "AdminController_companies_v1",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Part of the name or Google domain.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminCompanyDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Admin-Token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ADMIN_API_TOKEN is not set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-token": []
+          }
+        ],
+        "summary": "Find companies by name or Google domain",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/companies/{companyId}/plan": {
+      "patch": {
+        "description": "Takes effect on the next API request.",
+        "operationId": "AdminController_setPlan_v1",
+        "parameters": [
+          {
+            "name": "companyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCompanyDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Admin-Token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ADMIN_API_TOKEN is not set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-token": []
+          }
+        ],
+        "summary": "Change a company's plan and, optionally, set a custom rate limit",
+        "tags": [
+          "Admin"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Resume Screener API",
+    "description": "Authenticate with a Google session (`Authorization: Bearer <token>`) or an API key (`X-API-Key`). API keys are limited per minute; above the limit the API returns 429.",
+    "version": "1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      },
+      "api-key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "admin-token": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Admin-Token"
+      }
+    },
+    "schemas": {
+      "ReadinessDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ]
+          },
+          "checks": {
+            "type": "object",
+            "example": {
+              "database": "up",
+              "queue": "up",
+              "storage": "up"
+            },
+            "description": "Each dependency: up or down."
+          }
+        },
+        "required": [
+          "status",
+          "checks"
+        ]
+      },
+      "GoogleSignInDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "description": "ID token returned by Google Identity Services on the frontend."
+          }
+        },
+        "required": [
+          "idToken"
+        ]
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "FieldErrorDto": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "requiredSkills"
+          },
+          "messages": {
+            "example": [
+              "Add at least one value."
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "field",
+          "messages"
+        ]
+      },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "string",
+            "example": "Some fields are invalid. Check the highlighted fields."
+          },
+          "errors": {
+            "description": "Present for validation errors.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorDto"
+            }
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message"
+        ]
+      },
+      "CreateApiKeyDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "ATS integration"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SkillWeightDto": {
+        "type": "object",
+        "properties": {
+          "skill": {
+            "type": "string",
+            "example": "Kotlin"
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "example": 4
+          }
+        },
+        "required": [
+          "skill",
+          "weight"
+        ]
+      },
+      "ScoringSettingsDto": {
+        "type": "object",
+        "properties": {
+          "requiredSkillWeight": {
+            "type": "number"
+          },
+          "preferredSkillWeight": {
+            "type": "number"
+          },
+          "experienceWeight": {
+            "type": "number"
+          },
+          "skillWeights": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillWeightDto"
+            }
+          },
+          "manualReviewThreshold": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "requiredSkillWeight",
+          "preferredSkillWeight",
+          "experienceWeight",
+          "skillWeights",
+          "manualReviewThreshold"
+        ]
+      },
+      "JobDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "requiredSkills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preferredSkills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "minExperienceYears": {
+            "type": "number"
+          },
+          "minMatchScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "configVersion": {
+            "type": "number",
+            "description": "Version of the scoring config; increases when requirements change.",
+            "example": 1
+          },
+          "scoring": {
+            "$ref": "#/components/schemas/ScoringSettingsDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "requiredSkills",
+          "preferredSkills",
+          "minExperienceYears",
+          "minMatchScore",
+          "status",
+          "closedAt",
+          "configVersion",
+          "scoring",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ScoringSettingsInputDto": {
+        "type": "object",
+        "properties": {
+          "requiredSkillWeight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "default": 2
+          },
+          "preferredSkillWeight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "default": 1
+          },
+          "experienceWeight": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "default": 2
+          },
+          "skillWeights": {
+            "description": "Weights for single skills, overriding the weight of their kind. Each skill must be one of the job's skills. Replaces the whole list.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillWeightDto"
+            }
+          },
+          "manualReviewThreshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0.6,
+            "description": "Below this model confidence on a mandatory requirement, the candidate is marked \"Needs manual review\"."
+          }
+        }
+      },
+      "CreateJobDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Senior Backend Engineer",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "requiredSkills": {
+            "example": [
+              "TypeScript",
+              "PostgreSQL"
+            ],
+            "description": "Mandatory skills. A candidate without one is marked \"Does not meet requirements\".",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preferredSkills": {
+            "example": [
+              "Docker"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "minExperienceYears": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60,
+            "example": 3
+          },
+          "minMatchScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 0,
+            "description": "Candidates scoring below this are shown at the bottom of the list."
+          },
+          "scoring": {
+            "description": "How requirements are weighted and when to ask for manual review. Omitted fields keep their current (or default) values.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScoringSettingsInputDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "requiredSkills",
+          "minExperienceYears"
+        ]
+      },
+      "UpdateJobDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Senior Backend Engineer",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "requiredSkills": {
+            "example": [
+              "TypeScript",
+              "PostgreSQL"
+            ],
+            "description": "Mandatory skills. A candidate without one is marked \"Does not meet requirements\".",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preferredSkills": {
+            "example": [
+              "Docker"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "minExperienceYears": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 60,
+            "example": 3
+          },
+          "minMatchScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 0,
+            "description": "Candidates scoring below this are shown at the bottom of the list."
+          },
+          "scoring": {
+            "description": "How requirements are weighted and when to ask for manual review. Omitted fields keep their current (or default) values.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScoringSettingsInputDto"
+              }
+            ]
+          }
+        }
+      },
+      "UpdatedJobDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "requiredSkills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preferredSkills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "minExperienceYears": {
+            "type": "number"
+          },
+          "minMatchScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ]
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "configVersion": {
+            "type": "number",
+            "description": "Version of the scoring config; increases when requirements change.",
+            "example": 1
+          },
+          "scoring": {
+            "$ref": "#/components/schemas/ScoringSettingsDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rescoreSuggested": {
+            "type": "boolean",
+            "description": "True when the requirements changed and the job already has resumes. Offer to re-score them with POST /jobs/{jobId}/rescore."
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "requiredSkills",
+          "preferredSkills",
+          "minExperienceYears",
+          "minMatchScore",
+          "status",
+          "closedAt",
+          "configVersion",
+          "scoring",
+          "createdAt",
+          "updatedAt",
+          "rescoreSuggested"
+        ]
+      },
+      "FileUploadResultDto": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "example": "jane-doe.pdf"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected",
+              "duplicate"
+            ]
+          },
+          "resumeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Set when accepted."
+          },
+          "duplicateOfResumeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Set for duplicates: the resume already uploaded."
+          },
+          "reason": {
+            "type": "string",
+            "example": "File is too large (max 10 MB).",
+            "description": "Why the file was rejected or skipped."
+          }
+        },
+        "required": [
+          "filename",
+          "status"
+        ]
+      },
+      "UploadResultDto": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "description": "One entry per file, in upload order.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileUploadResultDto"
+            }
+          },
+          "accepted": {
+            "type": "number"
+          },
+          "rejected": {
+            "type": "number"
+          },
+          "duplicates": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "results",
+          "accepted",
+          "rejected",
+          "duplicates"
+        ]
+      },
+      "Object": {
+        "type": "object",
+        "properties": {}
+      },
+      "ResumeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Queued",
+              "Processing",
+              "Processed",
+              "Processing failed",
+              "Could not read file"
+            ]
+          },
+          "attempts": {
+            "type": "number",
+            "description": "Processing attempts so far."
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true,
+            "description": "Readable reason for the last failure."
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "processedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "candidateId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "The candidate created from this resume, once processed."
+          }
+        },
+        "required": [
+          "id",
+          "jobId",
+          "filename",
+          "sizeBytes",
+          "status",
+          "attempts",
+          "lastError",
+          "uploadedAt",
+          "processedAt",
+          "candidateId"
+        ]
+      },
+      "ResumePageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResumeDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "ProgressDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "All resumes of the job."
+          },
+          "queued": {
+            "type": "number",
+            "description": "Waiting to be processed."
+          },
+          "processing": {
+            "type": "number",
+            "description": "Being processed now."
+          },
+          "processed": {
+            "type": "number"
+          },
+          "failed": {
+            "type": "number",
+            "description": "processingFailed + couldNotRead."
+          },
+          "processingFailed": {
+            "type": "number"
+          },
+          "couldNotRead": {
+            "type": "number"
+          },
+          "done": {
+            "type": "boolean",
+            "description": "Nothing left to process."
+          },
+          "summary": {
+            "type": "string",
+            "example": "Processed 48 of 50, 2 failed"
+          }
+        },
+        "required": [
+          "total",
+          "queued",
+          "processing",
+          "processed",
+          "failed",
+          "processingFailed",
+          "couldNotRead",
+          "done",
+          "summary"
+        ]
+      },
+      "RequeueResultDto": {
+        "type": "object",
+        "properties": {
+          "queued": {
+            "type": "number",
+            "description": "Resumes queued for processing again."
+          }
+        },
+        "required": [
+          "queued"
+        ]
+      },
+      "CandidateSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resumeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "matchScore": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "experienceYears": {
+            "type": "number",
+            "nullable": true,
+            "description": "Years."
+          },
+          "keySkills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Does not meet requirements",
+                "Needs manual review",
+                "Possible manipulation"
+              ]
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Pending",
+              "Approved",
+              "Rejected"
+            ]
+          },
+          "belowThreshold": {
+            "type": "boolean",
+            "description": "Below the job minimum score; shown separately at the bottom."
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "resumeId",
+          "name",
+          "matchScore",
+          "experienceYears",
+          "keySkills",
+          "warnings",
+          "status",
+          "belowThreshold",
+          "evaluatedAt"
+        ]
+      },
+      "CandidatePageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateSummaryDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Candidates matching the filters."
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "minMatchScore": {
+            "type": "number",
+            "description": "The job's minimum match score."
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize",
+          "minMatchScore"
+        ]
+      },
+      "ContactsDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "phone",
+          "location"
+        ]
+      },
+      "RequirementResultDto": {
+        "type": "object",
+        "properties": {
+          "requirementId": {
+            "type": "string",
+            "example": "skill:typescript"
+          },
+          "label": {
+            "type": "string",
+            "example": "TypeScript"
+          },
+          "mandatory": {
+            "type": "boolean"
+          },
+          "met": {
+            "type": "boolean"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "points": {
+            "type": "number",
+            "description": "Points this requirement added to the score."
+          },
+          "maxPoints": {
+            "type": "number",
+            "description": "Points it could add at most."
+          },
+          "evidence": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "requirementId",
+          "label",
+          "mandatory",
+          "met",
+          "confidence",
+          "points",
+          "maxPoints",
+          "evidence"
+        ]
+      },
+      "EvaluationInfoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "configVersion": {
+            "type": "number",
+            "description": "Scoring config version used."
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "modelVersion": {
+            "type": "string"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "configVersion",
+          "modelName",
+          "modelVersion",
+          "evaluatedAt"
+        ]
+      },
+      "ResumeInfoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "sizeBytes",
+          "uploadedAt"
+        ]
+      },
+      "CandidateDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/ContactsDto"
+          },
+          "matchScore": {
+            "type": "number",
+            "nullable": true
+          },
+          "experienceYears": {
+            "type": "number",
+            "nullable": true
+          },
+          "belowThreshold": {
+            "type": "boolean"
+          },
+          "foundSkills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "missingSkills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requirements": {
+            "description": "Each requirement's verdict and contribution to the score.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequirementResultDto"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Does not meet requirements",
+                "Needs manual review",
+                "Possible manipulation"
+              ]
+            }
+          },
+          "warningDetails": {
+            "description": "Why warnings were raised.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Pending",
+              "Approved",
+              "Rejected"
+            ]
+          },
+          "evaluation": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationInfoDto"
+              }
+            ]
+          },
+          "resume": {
+            "$ref": "#/components/schemas/ResumeInfoDto"
+          }
+        },
+        "required": [
+          "id",
+          "jobId",
+          "contacts",
+          "matchScore",
+          "experienceYears",
+          "belowThreshold",
+          "foundSkills",
+          "missingSkills",
+          "requirements",
+          "warnings",
+          "warningDetails",
+          "status",
+          "evaluation",
+          "resume"
+        ]
+      },
+      "UpdateCandidateStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "Pending",
+              "Approved",
+              "Rejected"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "DownloadLinkDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Opens the original file; works until expiresAt."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "url",
+          "expiresAt"
+        ]
+      },
+      "DecisionCountsDto": {
+        "type": "object",
+        "properties": {
+          "Pending": {
+            "type": "number"
+          },
+          "Approved": {
+            "type": "number"
+          },
+          "Rejected": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "Pending",
+          "Approved",
+          "Rejected"
+        ]
+      },
+      "ScoreBucketDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "number",
+            "example": 80
+          },
+          "to": {
+            "type": "number",
+            "example": 100,
+            "description": "Inclusive only for the last bucket."
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "count"
+        ]
+      },
+      "CandidateStatsDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "aboveThreshold": {
+            "type": "number",
+            "description": "At or above the job minimum score."
+          },
+          "belowThreshold": {
+            "type": "number"
+          },
+          "withWarnings": {
+            "type": "number"
+          },
+          "averageScore": {
+            "type": "number",
+            "nullable": true
+          },
+          "byDecision": {
+            "$ref": "#/components/schemas/DecisionCountsDto"
+          },
+          "scoreDistribution": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScoreBucketDto"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "aboveThreshold",
+          "belowThreshold",
+          "withWarnings",
+          "averageScore",
+          "byDecision",
+          "scoreDistribution"
+        ]
+      },
+      "RequirementCoverageDto": {
+        "type": "object",
+        "properties": {
+          "requirementId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "mandatory": {
+            "type": "boolean"
+          },
+          "met": {
+            "type": "number",
+            "description": "Candidates meeting this requirement."
+          },
+          "share": {
+            "type": "number",
+            "description": "Share of evaluated candidates, 0..1."
+          }
+        },
+        "required": [
+          "requirementId",
+          "label",
+          "mandatory",
+          "met",
+          "share"
+        ]
+      },
+      "JobReportDto": {
+        "type": "object",
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/JobDto"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "processing": {
+            "$ref": "#/components/schemas/ProgressDto"
+          },
+          "candidates": {
+            "$ref": "#/components/schemas/CandidateStatsDto"
+          },
+          "requirements": {
+            "description": "How many candidates meet each of the job's current requirements.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequirementCoverageDto"
+            }
+          },
+          "topCandidates": {
+            "description": "Best candidates at or above the minimum score.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidateSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "job",
+          "generatedAt",
+          "processing",
+          "candidates",
+          "requirements",
+          "topCandidates"
+        ]
+      },
+      "PlanLimitDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "extended"
+            ]
+          },
+          "apiRateLimitPerMinute": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "plan",
+          "apiRateLimitPerMinute"
+        ]
+      },
+      "AdminCompanyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "googleDomain": {
+            "type": "string",
+            "nullable": true
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "extended"
+            ]
+          },
+          "apiRateLimitPerMinute": {
+            "type": "number",
+            "description": "Requests per minute per API key that apply now."
+          },
+          "customRateLimitPerMinute": {
+            "type": "number",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "googleDomain",
+          "plan",
+          "apiRateLimitPerMinute",
+          "customRateLimitPerMinute",
+          "createdAt"
+        ]
+      },
+      "SetPlanDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "extended"
+            ]
+          },
+          "customRateLimitPerMinute": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 100000,
+            "description": "Requests per minute per API key instead of the plan's limit. null removes a custom limit; omit to keep the current one."
+          }
+        },
+        "required": [
+          "plan"
+        ]
+      }
+    }
+  }
+}
