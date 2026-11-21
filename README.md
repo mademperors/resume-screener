@@ -76,10 +76,46 @@ Managed in Wrike ("Jev Screening Team" space, project **Jev Resume Screening MVP
 | Myroslav Verstiuk | Frontend / UI Engineer | Web interface, candidate table & card, upload, export |
 | Andriy Chernenko | QA & DevOps Engineer | Wrike, Git, CI/CD, testing, Docker, deployment |
 
+## Frontend
+
+The recruiter web client lives in [`frontend/`](frontend/) and is built with Vite, React, TypeScript, Tailwind CSS and shadcn-style UI primitives.
+
+### Requirements
+
+- Node.js 22+
+- npm 10+
+
+### Getting started
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The app runs at http://localhost:5173. During development it uses **MSW** (Mock Service Worker) with an in-memory job store, so no backend is required — seeded jobs are available on first load.
+
+### Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start the dev server with API mocks |
+| `npm test` | Run unit and integration tests (Vitest + Testing Library + MSW) |
+| `npm run typecheck` | Type-check the project |
+| `npm run lint` | Lint with oxlint |
+| `npm run format` | Format with Prettier |
+| `npm run build` | Production build |
+
+### Connecting a real backend
+
+Set `VITE_MOCKS=false` and optionally `VITE_API_BASE_URL` (defaults to `/api/v1`; dev requests are proxied to `http://localhost:3000`). See [`frontend/README.md`](frontend/README.md) for details.
+
 ## Status
 
-Course reports ПР1–ПР5 (project description, user & functional requirements, non-functional requirements, system requirements, Wrike project plan) are completed. Development stage is in progress; see the roadmap above for planned deliverables:
+Course reports ПР1–ПР5 (project description, user & functional requirements, non-functional requirements, system requirements, Wrike project plan) are completed. Development stage is in progress:
 
-- Working web-service prototype deployed locally or in a test cloud environment
-- REST API with endpoints for job posting, resume batch upload, and typed match reports
-- Text extraction & normalization module for PDF/DOCX
+- Web client foundation with typed API layer, MSW mocks and automated tests
+- Job posting form with validation, edit/delete flows and screening filters (task 3.3)
+- Working web-service prototype deployed locally or in a test cloud environment (planned)
+- REST API with endpoints for job posting, resume batch upload, and typed match reports (planned)
+- Text extraction & normalization module for PDF/DOCX (planned)
