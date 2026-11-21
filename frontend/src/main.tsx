@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { createAppRouter } from '@/app/router'
+import { AuthProvider } from '@/features/auth/AuthContext'
 import './index.css'
 
 async function enableMocking() {
@@ -10,7 +11,10 @@ async function enableMocking() {
   }
 
   const { worker } = await import('@/mocks/browser')
-  await worker.start({ onUnhandledFrame: 'bypass' })
+  await worker.start({
+    onUnhandledFrame: 'bypass',
+    serviceWorker: { url: '/mockServiceWorker.js' },
+  })
 }
 
 const router = createAppRouter()
@@ -18,7 +22,9 @@ const router = createAppRouter()
 enableMocking().then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <RouterProvider router={router} />
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
     </StrictMode>,
   )
 })

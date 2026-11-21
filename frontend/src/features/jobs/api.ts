@@ -1,28 +1,35 @@
 import { apiRequest } from '@/api/client'
-import type { Job, JobInput, UpdateJobInput } from '@/types/job'
+import type { CreateJobInput, Job, JobStatus, UpdateJobInput, UpdatedJob } from '@/types/api'
 
-export function listJobs() {
-  return apiRequest<Job[]>('/jobs')
+export function listJobs(status?: JobStatus) {
+  const query = status ? `?status=${status}` : ''
+  return apiRequest<Job[]>(`/jobs${query}`)
 }
 
 export function getJob(jobId: string) {
   return apiRequest<Job>(`/jobs/${jobId}`)
 }
 
-export function createJob(input: JobInput) {
-  return apiRequest<Job>('/jobs', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
+export function createJob(input: CreateJobInput) {
+  return apiRequest<Job>('/jobs', { method: 'POST', body: input })
 }
 
 export function updateJob(jobId: string, input: UpdateJobInput) {
-  return apiRequest<Job>(`/jobs/${jobId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  })
+  return apiRequest<UpdatedJob>(`/jobs/${jobId}`, { method: 'PATCH', body: input })
 }
 
 export function deleteJob(jobId: string) {
   return apiRequest<void>(`/jobs/${jobId}`, { method: 'DELETE' })
+}
+
+export function closeJob(jobId: string) {
+  return apiRequest<Job>(`/jobs/${jobId}/close`, { method: 'POST' })
+}
+
+export function reopenJob(jobId: string) {
+  return apiRequest<Job>(`/jobs/${jobId}/reopen`, { method: 'POST' })
+}
+
+export function rescoreJob(jobId: string) {
+  return apiRequest<{ queued: number }>(`/jobs/${jobId}/rescore`, { method: 'POST' })
 }

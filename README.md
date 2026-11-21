@@ -80,6 +80,8 @@ Managed in Wrike ("Jev Screening Team" space, project **Jev Resume Screening MVP
 
 The recruiter web client lives in [`frontend/`](frontend/) and is built with Vite, React, TypeScript, Tailwind CSS and shadcn-style UI primitives.
 
+**Implemented:** Google sign-in with rotating refresh tokens and 30-minute idle sign-out, job management (create/edit/close/reopen/delete, scoring configuration), bulk resume upload with per-file results and live processing progress, ranked candidate table with filters/sorting/pagination and a separate below-threshold section, candidate card with requirement breakdown and decisions, short-lived original-file links, CSV export, printable job report, and account/API-key management.
+
 ### Requirements
 
 - Node.js 22+
@@ -93,7 +95,7 @@ npm install
 npm run dev
 ```
 
-The app runs at http://localhost:5173. During development it uses **MSW** (Mock Service Worker) with an in-memory job store, so no backend is required — seeded jobs are available on first load.
+The app runs at http://localhost:5173. During development it uses **MSW** (Mock Service Worker) with a seeded in-memory backend — no Docker or Google credentials required. Choose **Continue with demo account** on the sign-in screen.
 
 ### Scripts
 
@@ -108,7 +110,7 @@ The app runs at http://localhost:5173. During development it uses **MSW** (Mock 
 
 ### Connecting a real backend
 
-Set `VITE_MOCKS=false` and optionally `VITE_API_BASE_URL` (defaults to `/api/v1`; dev requests are proxied to `http://localhost:3000`). See [`frontend/README.md`](frontend/README.md) for details.
+Copy `frontend/.env.example` to `frontend/.env.local`, set `VITE_MOCKS=false`, `VITE_API_BASE_URL` and `VITE_GOOGLE_CLIENT_ID`, and add the frontend origin to the backend's `CORS_ORIGINS`. See [`frontend/README.md`](frontend/README.md) for details.
 
 ## Status
 
@@ -116,6 +118,11 @@ Course reports ПР1–ПР5 (project description, user & functional requirement
 
 - Web client foundation with typed API layer, MSW mocks and automated tests
 - Job posting form with validation, edit/delete flows and screening filters (task 3.3)
+- Resume upload, processing progress and retry flows (task 3.9)
+- Candidate table, filters, candidate card and decisions (task 3.10)
+- CSV export and printable job report (task 3.13)
+- Auth (Google SSO), account page and API keys
 - Working web-service prototype deployed locally or in a test cloud environment (planned)
-- REST API with endpoints for job posting, resume batch upload, and typed match reports (planned)
-- Text extraction & normalization module for PDF/DOCX (planned)
+- Real Jev model integration (in progress by the backend team; a deterministic mock model is used meanwhile)
+- Text extraction & normalization module for PDF/DOCX (backend MVP ready)
+- REST API with typed match reports (backend MVP ready for review)
