@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+test
+backups
+docker
+.env
+.env.*
+*.tsbuildinfo
+*.pdf
+*.log
+Dockerfile
+docker-compose.yml
+README.md
