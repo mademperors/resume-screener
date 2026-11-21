@@ -47,6 +47,29 @@ The backend must allow the frontend origin via `CORS_ORIGINS` (for example `http
 - Reports: `GET /jobs/{id}/report`
 - API keys: `GET/POST/DELETE /api-keys`
 
+## End-to-end tests (Playwright)
+
+Three layers:
+
+| Command                    | What it covers                                                                |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| `npm run test:e2e`         | Full UI against the in-browser MSW backend (no Docker)                        |
+| `npm run test:e2e:backend` | REST API against the real backend (seeds an API key first)                    |
+| `npm run test:e2e:real`    | Full UI against the real backend (seeds a session; Google sign-in is skipped) |
+
+`test:e2e:backend` and `test:e2e:real` need the backend running on `:3000`:
+
+```bash
+cd backend
+docker compose up -d postgres valkey seaweedfs
+npm run start:dev        # terminal 1
+npm run start:worker:dev # terminal 2
+```
+
+The seed script `frontend/e2e/seed-backend.mjs` creates an "E2E Company", an "E2E Recruiter", an API key and a session with a known refresh token (local dev database only). It runs automatically before the backend-backed suites.
+
+The first backend start also needs `backend/.env` with `JWT_SECRET` and `GOOGLE_CLIENT_ID` (see `backend/.env.example`). A placeholder client ID is enough for the E2E suites; real Google sign-in needs a real OAuth client.
+
 ## Behaviour notes
 
 - The access token is kept in memory; the rotating refresh token is stored in `sessionStorage` (per-tab session). A 401 triggers one silent refresh before signing out.

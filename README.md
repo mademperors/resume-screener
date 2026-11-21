@@ -107,6 +107,11 @@ The app runs at http://localhost:5173. During development it uses **MSW** (Mock 
 | `npm run lint` | Lint with oxlint |
 | `npm run format` | Format with Prettier |
 | `npm run build` | Production build |
+| `npm run test:e2e` | Playwright E2E (UI with mocks) |
+| `npm run test:e2e:backend` | Playwright E2E (REST API against the real backend) |
+| `npm run test:e2e:real` | Playwright E2E (full UI against the real backend) |
+
+See [`frontend/README.md`](frontend/README.md) for backend-backed E2E prerequisites.
 
 ### Connecting a real backend
 
@@ -122,6 +127,7 @@ Course reports ПР1–ПР5 (project description, user & functional requirement
 - Candidate table, filters, candidate card and decisions (task 3.10)
 - CSV export and printable job report (task 3.13)
 - Auth (Google SSO), account page and API keys
+- Playwright E2E: mocked UI, real-backend API and full UI against the backend with upload → processing → ranking verified
 - Working web-service prototype deployed locally or in a test cloud environment (planned)
 - Real Jev model integration (in progress by the backend team; a deterministic mock model is used meanwhile)
 - Text extraction & normalization module for PDF/DOCX (backend MVP ready)
