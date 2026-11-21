@@ -28,6 +28,9 @@ export default defineConfig({
     env: {
       // Fetch needs absolute URLs in Node (jsdom); MSW handlers match any origin.
       VITE_API_BASE_URL: 'http://localhost/api/v1',
+      // Keep tests independent of the developer's .env.local:
+      VITE_MOCKS: 'true',
+      VITE_GOOGLE_CLIENT_ID: '',
     },
   },
 })
