@@ -56,7 +56,7 @@ export abstract class ResumePreprocessor {
   abstract prepare(document: ExtractedDocument): Promise<PreparedResume>;
 }
 
-// --- 3. Screening model (Jev) ---
+// --- 3. Screening model (Gemini Decision 1, or the mock) ---
 
 export interface ScreeningInput {
   resumeText: string;

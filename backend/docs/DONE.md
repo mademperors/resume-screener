@@ -4,8 +4,9 @@ State of the backend as of 20.11.2026 (commits `718beab` to `3bee3e2` on `main`)
 Requirement numbers refer to the course reports: functional (ПР-2, "FR"),
 non-functional (ПР-3, "NFR") and system requirements (ПР-4, "SR").
 
-**Summary:** the backend is complete for the MVP except the real Jev model,
-which is replaced by a deterministic mock. It runs with one command in Docker,
+**Summary:** the backend is complete for the MVP. The Gemini model is connected
+(`SCREENING_MODEL=gemini`, not yet calibrated on real resumes); a deterministic
+mock is the default. It runs with one command in Docker,
 and 133 unit tests plus 71 end-to-end tests pass against real Postgres,
 Valkey and SeaweedFS.
 
@@ -92,7 +93,7 @@ Each stage is an interface, so it can be replaced without touching the rest.
 |---|---|
 | Text extraction | PDF via pdfjs, DOCX from its XML (headers, body, tables, text boxes, footers). Text a reader can't see is set aside and never evaluated: white text without a dark background, tiny, transparent, invisible or off-page text, hidden Word runs. White text on a coloured sidebar counts as visible. Fewer than 50 readable characters (a scan) gives "Could not read file". |
 | Preprocessing | Finds the name, email, phone and location for the recruiter, then removes them, links, and age, gender, nationality and similar from the text the model sees (FR 2.7.3, NFR 5.3). Removes sentences addressed to AI ("ignore previous instructions…", English, Ukrainian, Russian). Hidden text or such sentences flag **Possible manipulation**, with the reason shown on the card. |
-| Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching for skills, and experience from stated years or job dates (education skipped). Returns a verdict and a confidence (0–1) per requirement. `jev`: `JevScreeningModel`, an empty class for the Jev developer. |
+| Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching for skills, and experience from stated years or job dates (education skipped). Returns a verdict and a confidence (0–1) per requirement. `gemini`: `GeminiScreeningModel`: one request to the Gemini Decisions API (`gemini-decision-1`) per resume, one `choice` question (met / not met) per skill, the model's confidence becomes the verdict's confidence. Experience and the skills list come from the text, not from the model. Needs `GEMINI_API_KEY`. |
 | Scoring | `score = 100 × Σ(weight × confidence, if met) / Σ weight`, with the job's weights. Each requirement's points are stored. Flags: **Does not meet requirements** (confidently missing a mandatory requirement) and **Needs manual review** (confidence under the job's threshold on a mandatory requirement). The model never sets the score (NFR 6.3, SR 1.1.8). |
 
 The model's result is checked before scoring: one verdict per requirement,

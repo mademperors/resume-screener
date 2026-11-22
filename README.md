@@ -1,13 +1,13 @@
 # Resume Screener
 
-**Intelligent Resume Screening & Ranking System with Typed AI Models (Jev / System One)**
+**Intelligent Resume Screening & Ranking System with Typed AI Models (Gemini Decision 1)**
 
 > Курсовий проєкт «Система інтелектуального скринінгу та ранжування резюме з використанням типізованих AI-моделей»
 > MVP development: 14 Sep 2026 – 30 Nov 2026 (12 weeks)
 
 ## Overview
 
-Resume Screener is an MVP web service that automates the first stage of recruitment. It ingests unstructured resume files (PDF/DOCX), matches each candidate's profile against a job posting's requirements using a **typed fast-decision AI model (System One, "Jev")**, and returns a structured, numeric assessment — a ranked list of candidates with a transparent match index.
+Resume Screener is an MVP web service that automates the first stage of recruitment. It ingests unstructured resume files (PDF/DOCX), matches each candidate's profile against a job posting's requirements using a **typed fast-decision AI model (Gemini Decision 1)**, and returns a structured, numeric assessment — a ranked list of candidates with a transparent match index.
 
 Unlike naive "paste a resume into a chatbot" approaches, the system relies on a **typed data contract** (stack of technologies, years of commercial experience, risk flags, match index) instead of free-form generation. This makes scoring deterministic, cheap, fast, resistant to prompt-injection attacks, and compliant with high-risk-system requirements of the EU AI Act.
 
@@ -18,7 +18,7 @@ Unlike naive "paste a resume into a chatbot" approaches, the system relies on a 
 - **Asynchronous processing** — durable task queue (one resume = one job), live progress counters (processed / queued / failed) without page reloads
 - **Text extraction & preprocessing** — automatic text extraction from PDF/DOCX; removal of PII (name, email, phone, address, photo) before anything is sent to the AI model
 - **Prompt-injection protection** — detection of hidden text (white / tiny font) and AI-targeted instructions; such text is excluded from scoring and the candidate is flagged
-- **Typed AI verdicts** — the Jev model returns a separate verdict with a confidence level (0–1) for every job requirement; low confidence on mandatory requirements marks a candidate as *Needs manual review*
+- **Typed AI verdicts** — the model returns a separate verdict with a confidence level (0–1) for every job requirement; low confidence on mandatory requirements marks a candidate as *Needs manual review*
 - **Transparent scoring** — the final match index is computed by the system's own scoring module via a weighted formula over requirement verdicts (not by the model); contribution of each requirement is stored and visible to the recruiter
 - **Candidate table & cards** — sorting, filtering by skills/experience/index/warnings, statuses (Approved / Rejected / Pending), original file access via short-lived links
 - **Export** — CSV export of the current filtered list and a printable job report
@@ -38,7 +38,7 @@ Client–server system: the web client talks to the backend exclusively through 
 | 4 | Text Extraction Module | Extracts text from PDF/DOCX (≤ 10 MB); flags scans as unreadable |
 | 5 | Preprocessing Module | PII stripping, hidden-text & prompt-injection detection |
 | 6 | Task Queue & Workers | Durable background processing with retries and backoff |
-| 7 | AI Model Integration | Swappable adapter for the typed Jev model; per-job versioned evaluation configs |
+| 7 | AI Model Integration | Swappable adapter for the typed decision model (Gemini Decision 1); per-job versioned evaluation configs |
 | 8 | Scoring Module | Transparent weighted match-index formula; ≤ 5% result variance |
 | 9 | Export Module | CSV and printable report generation |
 | 10 | Relational Database | Jobs, candidates, scores, configs; daily backups; tenant isolation |
@@ -50,7 +50,7 @@ Client–server system: the web client talks to the backend exclusively through 
 - UI pages, sorting, and filtering respond in ≤ 1 s; API responds in ≤ 200 ms for 95% of requests
 - 99% monthly availability; failure of one component (e.g., export) never blocks other features
 - Horizontal & vertical scaling of workers — extra instances or more parallel jobs, zero code changes
-- Model calls throttled to the Jev API limits; on outage — retry with growing interval, then `Processing failed` status with manual/requeued restart
+- Model calls throttled to the model API limits; on outage — retry with growing interval, then `Processing failed` status with manual/requeued restart
 - Deterministic scoring: same inputs → ≤ 5% divergence in results
 - No name, photo, age, gender, or nationality is used in evaluation
 - Everything runs in Docker containers with a single command; secrets only via environment variables; CI/CD runs tests on every change
@@ -72,7 +72,7 @@ Managed in Wrike ("Jev Screening Team" space, project **Jev Resume Screening MVP
 | Member | Role | Responsibility |
 |--------|------|----------------|
 | Maksym Semeniuk | Team Lead / Systems Architect | Coordination, architecture, API, authentication, preprocessing |
-| Ivan Hushchin | Backend & AI Engineer | PDF/DOCX parsing, Jev integration, scoring, task queue, optimization |
+| Ivan Hushchin | Backend & AI Engineer | PDF/DOCX parsing, model integration, scoring, task queue, optimization |
 | Myroslav Verstiuk | Frontend / UI Engineer | Web interface, candidate table & card, upload, export |
 | Andriy Chernenko | QA & DevOps Engineer | Wrike, Git, CI/CD, testing, Docker, deployment |
 
@@ -129,6 +129,6 @@ Course reports ПР1–ПР5 (project description, user & functional requirement
 - Auth (Google SSO), account page and API keys
 - Playwright E2E: mocked UI, real-backend API and full UI against the backend with upload → processing → ranking verified
 - Working web-service prototype deployed locally or in a test cloud environment (planned)
-- Real Jev model integration (in progress by the backend team; a deterministic mock model is used meanwhile)
+- Gemini Decision 1 integration (implemented, not yet run against the real API; a deterministic mock model is the default)
 - Text extraction & normalization module for PDF/DOCX (backend MVP ready)
 - REST API with typed match reports (backend MVP ready for review)

@@ -9,7 +9,7 @@ import { ResumeSweeper } from './resume-sweeper.service.js';
 import { ResumeWorker } from './resume-worker.service.js';
 import { RetentionService } from './retention.service.js';
 import { WeightedScoringEngine } from './scoring/weighted-scoring-engine.js';
-import { JevScreeningModel } from './screening/jev-screening-model.js';
+import { GeminiScreeningModel } from './screening/gemini-screening-model.js';
 import { MockScreeningModel } from './screening/mock-screening-model.js';
 import {
   ResumePreprocessor,
@@ -37,8 +37,14 @@ import {
       provide: ScreeningModel,
       inject: [ConfigService],
       useFactory: (config: ConfigService<EnvironmentVariables, true>) =>
-        config.get('SCREENING_MODEL', { infer: true }) === 'jev'
-          ? new JevScreeningModel()
+        config.get('SCREENING_MODEL', { infer: true }) === 'gemini'
+          ? new GeminiScreeningModel({
+              // validateEnv guarantees the key when SCREENING_MODEL=gemini.
+              apiKey: config.get('GEMINI_API_KEY', { infer: true })!,
+              apiUrl: config.get('GEMINI_API_URL', { infer: true }),
+              model: config.get('GEMINI_MODEL', { infer: true }),
+              timeoutMs: config.get('GEMINI_TIMEOUT_MS', { infer: true }),
+            })
           : new MockScreeningModel(),
     },
   ],

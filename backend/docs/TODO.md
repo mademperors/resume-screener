@@ -3,32 +3,42 @@
 Ordered by importance for the MVP demo on 30.11.2026. "Owner" follows the
 team roles in the project plan (ПР-1); adjust as needed.
 
-## 1. Jev integration (Backend & AI engineer)
+## 1. Screening model: Gemini Decision 1 (Backend & AI engineer)
 
-The rest of the system is ready; only the model call is missing.
+`GeminiScreeningModel` is written and unit-tested against a stubbed API (see
+"Connecting the screening model" in the README). It has **not been run against
+the real API yet**: that needs a key from https://aistudio.google.com/api-keys.
+What is left:
 
-1. Implement `src/processing/screening/jev-screening-model.ts`. The comment
-   in that file lists the contract:
-   - Send the resume text and the requirements.
-   - Return exactly one verdict per requirement, with `met` and a confidence
-     in 0..1, plus the skills found and the years of experience.
-   - Set `modelName` and `modelVersion`.
-   - Throw `ScreeningModelUnavailableError` for timeouts, 5xx and 429 (these
-     are retried), and `PermanentProcessingError` otherwise.
-2. Add Jev's settings (for example `JEV_API_URL`, `JEV_API_KEY`) to
-   `src/config/env.validation.ts`, `.env.example` and the shared environment
-   in `docker-compose.yml`. Never put the key in code.
-3. Set `SCREENING_MODEL=jev`. Set `SCREENING_RATE_LIMIT_PER_SECOND` to Jev's
-   API limit.
-4. Calibrate the defaults on real resumes: the "Needs manual review"
-   threshold (0.6) and the weights (required 2, preferred 1, experience 2),
-   in `DEFAULT_SCORING` in `src/jobs/requirements.ts`. Jobs can override
-   them through their `scoring` settings.
-5. Check NFR 6.1: the same resume and job scored several times must stay
-   within 5%. If Jev isn't fully deterministic, add a test that runs the
-   same input N times.
-6. Keep `MockScreeningModel` as the fallback for development, tests and the
-   demo if Jev is unavailable.
+1. Create the key, set `SCREENING_MODEL=gemini` and `GEMINI_API_KEY`, upload
+   the files from `docs/manual-testing/files/` and check the verdicts. Confirm
+   the request format against the real API (question keys, the `choice`
+   answer shape).
+2. Free tier limits: 200 requests and 50,000 tokens per minute. Set
+   `SCREENING_RATE_LIMIT_PER_SECOND=2` and `WORKER_CONCURRENCY=2`; Google 429
+   answers are retried. Free-tier prompts may be used to improve Google's
+   products: test resumes only. A paid project is needed for real candidate
+   data.
+3. Check that the Gemini API is available from the deployment region (it was
+   not verified for Ukraine).
+4. Calibrate on real resumes. For a choice question the confidence is the
+   probability of the chosen answer (0.5 to 1), so the default "Needs manual
+   review" threshold of 0.6 means 60% sure. Adjust the threshold and the
+   weights (`DEFAULT_SCORING` in `src/jobs/requirements.ts`) if too many or
+   too few candidates land in manual review. Jobs can override them through
+   their `scoring` settings.
+5. Check NFR 6.1: score the same resume and job several times; results must
+   stay within 5%. The API has no temperature setting, so measure it, and add
+   a test (or script) that repeats the same input N times.
+6. Decide whether to show recruiters more than "Found in the resume" as
+   evidence: the model returns no quote, only an answer and its confidence.
+7. Resumes over 150,000 characters are cut (the model reads up to 262,144
+   tokens). Check this on real resumes.
+8. Text analysis is slow on one pathological input: a single 300,000-character
+   "word" takes about 20 seconds in `estimateExperience` (found while testing).
+   Normal resumes take milliseconds; consider a length cap before extraction.
+9. Keep `MockScreeningModel` as the fallback for development, tests and the
+   demo if the API is unavailable.
 
 ## 2. Frontend (Frontend engineer)
 
@@ -66,7 +76,7 @@ The API is complete for every screen in SR 1.5.3; the contract is
   serve the frontend from the same Caddy, add a site or route in
   `docker/caddy/Caddyfile` and a service in `docker-compose.yml`.
 
-## 3. Other backend work, not frontend or Jev
+## 3. Other backend work, not frontend or the model
 
 ### Needed before a real deployment
 
@@ -92,7 +102,7 @@ The API is complete for every screen in SR 1.5.3; the contract is
 ### Known limitations to keep in mind
 
 - The mock model matches keywords and aliases; it doesn't understand
-  context ("no experience with Docker" counts as Docker). Jev replaces it.
+  context ("no experience with Docker" counts as Docker). The real model replaces it.
 - Name detection uses the first short line that looks like a name; unusual
   layouts can give an empty name (the recruiter still sees the file).
 - Prompt-injection detection uses a fixed list of phrases. New wording can

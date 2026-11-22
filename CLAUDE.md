@@ -1,11 +1,12 @@
 # Resume Screener
 
-Resume screening and ranking system with typed AI models (Jev). Course
+Resume screening and ranking system with typed AI models (Gemini Decision 1). Course
 project; MVP demo on 30.11.2026.
 
-- `backend/`: NestJS API and worker. Complete for the MVP except the real Jev
-  model (a deterministic mock stands in).
-- `frontend/`: not started yet.
+- `backend/`: NestJS API and worker. Complete for the MVP; the Gemini model is
+  connected (`SCREENING_MODEL=gemini`) but not calibrated yet, a deterministic mock
+  is the default.
+- `frontend/`: Vite + React recruiter web client (see `frontend/README.md`).
 
 ## Where to look first
 
@@ -15,7 +16,7 @@ Read these before exploring the code; they're shorter and kept current.
 |---|---|
 | **API contract**: every endpoint, request/response schema, enum, validation limit and error shape | `backend/docs/openapi.json` (OpenAPI 3, generated from the code) |
 | What the backend does, by area, with requirement numbers | `backend/docs/DONE.md` |
-| What's left: Jev steps, what the frontend must handle, deployment | `backend/docs/TODO.md` |
+| What's left: model steps, what the frontend must handle, deployment | `backend/docs/TODO.md` |
 | Running, testing, Docker, migrations, plans | `backend/README.md` |
 | How to test by hand, step by step with expected results | `backend/docs/manual-testing/README.md` (test files in `files/`) |
 | All settings | `backend/.env.example` |
@@ -27,7 +28,7 @@ By role:
   section, CSV download). You don't need to read backend source. With the
   stack running, the same spec is at `https://localhost/api/docs-json`
   (interactive: `/api/docs`).
-- **Jev integration:** `backend/src/processing/screening/jev-screening-model.ts`
+- **Screening model:** `backend/src/processing/screening/gemini-screening-model.ts`
   (contract in its comment), `backend/src/processing/stages.ts` (the
   interfaces), and `backend/src/processing/screening/mock-screening-model.ts`
   as a working example. Nothing else needs to change.

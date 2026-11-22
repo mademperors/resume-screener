@@ -9,6 +9,7 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
   validateSync,
 } from 'class-validator';
 
@@ -139,10 +140,31 @@ export class EnvironmentVariables {
 
   /**
    * Which screening model evaluates resumes: `mock` (keyword matching, for
-   * development and demos) or `jev` (the real model, once implemented).
+   * development and demos) or `gemini` (Gemini Decision 1; needs GEMINI_API_KEY).
    */
-  @IsIn(['mock', 'jev'])
-  SCREENING_MODEL: 'mock' | 'jev' = 'mock';
+  @IsIn(['mock', 'gemini'])
+  SCREENING_MODEL: 'mock' | 'gemini' = 'mock';
+
+  /** Gemini API key (https://aistudio.google.com/api-keys). Required when SCREENING_MODEL=gemini. */
+  @ValidateIf((env: EnvironmentVariables) => env.SCREENING_MODEL === 'gemini')
+  @IsString()
+  @IsNotEmpty()
+  GEMINI_API_KEY?: string;
+
+  /** Gemini Decisions API endpoint. */
+  @IsUrl({ require_tld: false })
+  GEMINI_API_URL: string =
+    'https://generativelanguage.googleapis.com/v1beta/decisions';
+
+  /** Decision model; keep an exact id so a new release can't shift the calibrated thresholds. */
+  @IsString()
+  @IsNotEmpty()
+  GEMINI_MODEL: string = 'gemini-decision-1';
+
+  /** Give up on one Gemini request after this long (then it is retried later). */
+  @IsInt()
+  @Min(1000)
+  GEMINI_TIMEOUT_MS: number = 15_000;
 
   /** Also process resumes inside the API process (development convenience). */
   @IsIn(['true', 'false'])
