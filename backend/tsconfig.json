@@ -18,6 +18,8 @@
     "skipLibCheck": true,
     "strict": true,
     "strictPropertyInitialization": false,
-    "types": ["vitest/globals", "node", "multer"]
+    "types": ["vitest/globals", "node", "multer"],
+    // Tests import the code under test as @src/...; the app itself uses relative imports.
+    "paths": { "@src/*": ["./src/*"] }
   }
 }

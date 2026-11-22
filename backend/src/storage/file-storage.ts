@@ -1,7 +1,7 @@
 /**
  * Where original resume files live. The database stores only the key.
- * Implementations: S3FileStorage (SeaweedFS, AWS S3) and InMemoryFileStorage
- * (tests). Inject this abstract class, not an implementation.
+ * Implementation: S3FileStorage (SeaweedFS, AWS S3). Inject this abstract
+ * class, not an implementation.
  */
 export abstract class FileStorage {
   abstract put(key: string, body: Buffer, contentType: string): Promise<void>;

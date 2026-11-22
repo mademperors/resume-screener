@@ -56,8 +56,13 @@ By role:
   through the global exception filter.
 - **Code style:** ES modules with `.js` in relative imports; abstract classes
   as DI tokens for replaceable parts (storage, queue, pipeline stages).
+- **Tests:** in `backend/test/`, never next to the code. Pure logic goes in
+  `test/unit/`; anything touching the database, Redis or storage is an
+  integration test in `test/integration/` against the real services. Don't
+  fake repositories or TypeORM; fake only external edges (Google, the
+  screening model).
 - **Before committing:** `npm run lint`, `npm test`, and for behaviour
-  changes `npm run test:e2e` (needs the Docker services; see the README).
+  changes `npm run test:integration` (needs the Docker services; see the README).
 - **Commits:** no AI co-author or "generated with" lines in commit messages.
 - **Docs:** when something in `DONE.md` or `TODO.md` changes, update it in
   the same commit.

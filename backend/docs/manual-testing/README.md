@@ -3,7 +3,7 @@
 How to check the backend by hand, without the frontend. Each section lists
 the steps and what you should see. Requirement numbers (FR, NFR) refer to
 the course reports. Automated tests already cover most of this
-(`npm test`, `npm run test:e2e`); manual testing is for the demo, for
+(`npm test`, `npm run test:integration`); manual testing is for the demo, for
 reviewers, and for checking a real deployment.
 
 ## 1. Setup
