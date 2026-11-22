@@ -44,8 +44,9 @@ By role:
 - **Database changes:** never use `synchronize`. Change the entity, run
   `npm run migration:generate -- src/database/migrations/<Name>`, review the
   SQL, and add the class to `src/database/migrations/index.ts`.
-- **New settings:** add the variable to the namespace it belongs to in
-  `src/config/*.config.ts` (or a new `defineConfig` file), with no default in
+- **New settings:** add the variable to the zod schema of the namespace it
+  belongs to in `src/config/*.config.ts` (or a new `defineConfig` file; use
+  the `envVar` helpers for numbers, booleans, URLs, lists), with no default in
   code. Put its default in `.env.defaults`; a secret goes in `.env.example`
   with an empty or development value instead. A new namespace goes in
   `ALL_CONFIGS` in `src/config/config.module.ts` (loaded globally). Touch
