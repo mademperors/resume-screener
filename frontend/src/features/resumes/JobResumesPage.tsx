@@ -380,16 +380,17 @@ export function JobResumesPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {loadingResumes ? <LoadingState label="Loading resumes…" /> : null}
+          {/* Only the first load shows a spinner; refreshes keep the current list on screen. */}
+          {loadingResumes && !resumes ? <LoadingState label="Loading resumes…" /> : null}
           {resumesError ? <ErrorState message={resumesError} /> : null}
 
-          {!loadingResumes && !resumesError && resumes && resumes.items.length === 0 ? (
+          {!resumesError && resumes && resumes.items.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No resumes uploaded yet. Upload PDF or DOCX files above to get started.
             </p>
           ) : null}
 
-          {!loadingResumes && !resumesError && resumes && resumes.items.length > 0 ? (
+          {!resumesError && resumes && resumes.items.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>

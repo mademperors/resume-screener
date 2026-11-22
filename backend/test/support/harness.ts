@@ -4,9 +4,9 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { DataSource } from 'typeorm';
 import {
-  GoogleTokenVerifier,
-  type GoogleIdentity,
-} from '@src/auth/google-token.verifier.js';
+  IdentityVerifier,
+  type VerifiedIdentity,
+} from '@src/auth/identity-verifier.js';
 import {
   ProcessingQueue,
   type ResumeTask,
@@ -49,7 +49,7 @@ export async function createHarness(
   // Imported lazily so loading this file doesn't validate the environment.
   const { AppModule } = await import('@src/app.module.js');
   const fakeGoogle = {
-    verify: async (idToken: string): Promise<GoogleIdentity> => ({
+    verify: async (idToken: string): Promise<VerifiedIdentity> => ({
       subject: `google-${idToken}`,
       email: `${idToken}@example.com`,
       name: idToken,
@@ -59,7 +59,7 @@ export async function createHarness(
   };
   const queue = new RecordingProcessingQueue();
   let builder = Test.createTestingModule({ imports: [AppModule] })
-    .overrideProvider(GoogleTokenVerifier)
+    .overrideProvider(IdentityVerifier)
     .useValue(fakeGoogle);
   if (!options.realQueue) {
     builder = builder.overrideProvider(ProcessingQueue).useValue(queue);

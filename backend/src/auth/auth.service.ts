@@ -1,18 +1,19 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { randomToken, sha256Hex } from '../common/crypto.js';
+import { CompaniesRepository } from '../companies/companies.repository.js';
 import { CompanyPlansService } from '../companies/company-plans.service.js';
-import { Company } from '../companies/company.entity.js';
+import type { Company } from '../companies/company.entity.js';
 import { sessionConfig, type SessionConfig } from '../config/session.config.js';
-import { User } from '../users/user.entity.js';
+import type { User } from '../users/user.entity.js';
+import { UsersRepository } from '../users/users.repository.js';
 import type { AuthTokensDto, MeDto } from './dto/auth.dto.js';
 import {
-  GoogleTokenVerifier,
-  type GoogleIdentity,
-} from './google-token.verifier.js';
-import { Session } from './session.entity.js';
+  IdentityVerifier,
+  type VerifiedIdentity,
+} from './identity-verifier.js';
+import type { Session } from './session.entity.js';
+import { SessionsRepository } from './sessions.repository.js';
 
 export interface AccessTokenPayload {
   sub: string;
@@ -32,10 +33,10 @@ export class AuthService {
   private readonly maxAgeMs: number;
 
   constructor(
-    @InjectRepository(User) private readonly users: Repository<User>,
-    @InjectRepository(Company) private readonly companies: Repository<Company>,
-    @InjectRepository(Session) private readonly sessions: Repository<Session>,
-    private readonly google: GoogleTokenVerifier,
+    private readonly users: UsersRepository,
+    private readonly companies: CompaniesRepository,
+    private readonly sessions: SessionsRepository,
+    private readonly identities: IdentityVerifier,
     private readonly jwt: JwtService,
     @Inject(sessionConfig.KEY) config: SessionConfig,
     private readonly plans: CompanyPlansService,
@@ -46,20 +47,18 @@ export class AuthService {
   }
 
   async signInWithGoogle(idToken: string): Promise<AuthTokensDto> {
-    const identity = await this.google.verify(idToken);
+    const identity = await this.identities.verify(idToken);
     const user = await this.findOrCreateUser(identity);
 
     const now = new Date();
     const refreshToken = randomToken(48);
-    const session = await this.sessions.save(
-      this.sessions.create({
-        userId: user.id,
-        refreshTokenHash: sha256Hex(refreshToken),
-        lastActivityAt: now,
-        expiresAt: new Date(now.getTime() + this.maxAgeMs),
-        revokedAt: null,
-      }),
-    );
+    const session = await this.sessions.create({
+      userId: user.id,
+      refreshTokenHash: sha256Hex(refreshToken),
+      lastActivityAt: now,
+      expiresAt: new Date(now.getTime() + this.maxAgeMs),
+      revokedAt: null,
+    });
     return this.issueTokens(user, session, refreshToken);
   }
 
@@ -68,10 +67,9 @@ export class AuthService {
    * frontend that refreshes in the background still gets signed out when idle.
    */
   async refresh(refreshToken: string): Promise<AuthTokensDto> {
-    const session = await this.sessions.findOne({
-      where: { refreshTokenHash: sha256Hex(refreshToken) },
-      relations: { user: true },
-    });
+    const session = await this.sessions.findByRefreshTokenHash(
+      sha256Hex(refreshToken),
+    );
     if (!session || !this.isActive(session, new Date())) {
       throw new UnauthorizedException(SESSION_EXPIRED_MESSAGE);
     }
@@ -87,7 +85,7 @@ export class AuthService {
 
   /** Checks the session behind an access token and records activity on it. */
   async touchSession(sessionId: string): Promise<boolean> {
-    const session = await this.sessions.findOneBy({ id: sessionId });
+    const session = await this.sessions.findById(sessionId);
     const now = new Date();
     if (!session || !this.isActive(session, now)) {
       return false;
@@ -119,10 +117,7 @@ export class AuthService {
   }
 
   async getProfile(userId: string): Promise<MeDto> {
-    const user = await this.users.findOne({
-      where: { id: userId },
-      relations: { company: true },
-    });
+    const user = await this.users.findWithCompany(userId);
     if (!user) {
       throw new UnauthorizedException(SESSION_EXPIRED_MESSAGE);
     }
@@ -168,10 +163,8 @@ export class AuthService {
     };
   }
 
-  private async findOrCreateUser(identity: GoogleIdentity): Promise<User> {
-    const existing = await this.users.findOneBy({
-      googleSubject: identity.subject,
-    });
+  private async findOrCreateUser(identity: VerifiedIdentity): Promise<User> {
+    const existing = await this.users.findByGoogleSubject(identity.subject);
     if (existing) {
       existing.email = identity.email;
       existing.name = identity.name;
@@ -180,36 +173,24 @@ export class AuthService {
       return this.users.save(existing);
     }
     const company = await this.resolveCompany(identity);
-    return this.users.save(
-      this.users.create({
-        googleSubject: identity.subject,
-        email: identity.email,
-        name: identity.name,
-        avatarUrl: identity.avatarUrl,
-        companyId: company.id,
-        lastLoginAt: new Date(),
-      }),
-    );
+    return this.users.create({
+      googleSubject: identity.subject,
+      email: identity.email,
+      name: identity.name,
+      avatarUrl: identity.avatarUrl,
+      companyId: company.id,
+      lastLoginAt: new Date(),
+    });
   }
 
   /**
    * Google Workspace users share a company per domain. Personal Google
    * accounts each get their own company.
    */
-  private async resolveCompany(identity: GoogleIdentity): Promise<Company> {
+  private resolveCompany(identity: VerifiedIdentity): Promise<Company> {
     const domain = identity.hostedDomain?.toLowerCase();
-    if (!domain) {
-      return this.companies.save(
-        this.companies.create({ name: identity.email, googleDomain: null }),
-      );
-    }
-    // Upsert so two first-time sign-ins from one domain don't race.
-    await this.companies
-      .createQueryBuilder()
-      .insert()
-      .values({ name: domain, googleDomain: domain })
-      .orIgnore()
-      .execute();
-    return this.companies.findOneByOrFail({ googleDomain: domain });
+    return domain
+      ? this.companies.findOrCreateForDomain(domain)
+      : this.companies.createPersonal(identity.email);
   }
 }

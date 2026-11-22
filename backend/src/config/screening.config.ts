@@ -1,49 +1,5 @@
-import {
-  IsIn,
-  IsInt,
-  IsNotEmpty,
-  IsString,
-  IsUrl,
-  Min,
-  ValidateIf,
-} from 'class-validator';
-import { defineConfig, type ConfigOf } from './define-config.js';
-
-const SCREENING_MODELS = ['mock', 'gemini'] as const;
-type ScreeningModelName = (typeof SCREENING_MODELS)[number];
-
-const usesGemini = (env: ScreeningEnv) => env.SCREENING_MODEL === 'gemini';
-
-class ScreeningEnv {
-  /**
-   * `mock` (keyword matching, for development and demos) or `gemini`
-   * (Gemini Decision 1; needs GEMINI_API_KEY).
-   */
-  @IsIn(SCREENING_MODELS)
-  SCREENING_MODEL: ScreeningModelName;
-
-  /** Secret (https://aistudio.google.com/api-keys), in .env. */
-  @ValidateIf(usesGemini)
-  @IsString()
-  @IsNotEmpty()
-  GEMINI_API_KEY: string;
-
-  @ValidateIf(usesGemini)
-  @IsUrl({ require_tld: false, protocols: ['https', 'http'] })
-  GEMINI_API_URL: string;
-
-  /** Keep an exact id so a new release can't shift the calibrated thresholds. */
-  @ValidateIf(usesGemini)
-  @IsString()
-  @IsNotEmpty()
-  GEMINI_MODEL: string;
-
-  /** Give up on one request after this long (it is retried later). */
-  @ValidateIf(usesGemini)
-  @IsInt()
-  @Min(1000)
-  GEMINI_TIMEOUT_MS: number;
-}
+import { z } from 'zod';
+import { defineConfig, envVar, type ConfigOf } from './define-config.js';
 
 export interface GeminiSettings {
   apiKey: string;
@@ -55,10 +11,26 @@ export interface GeminiSettings {
 export type ScreeningSettings =
   { model: 'mock' } | { model: 'gemini'; gemini: GeminiSettings };
 
-/** Which model evaluates resumes, and how to reach it. */
+/**
+ * Which model evaluates resumes, and how to reach it: `mock` (keyword
+ * matching, for development and demos) or `gemini` (Gemini Decision 1),
+ * which then needs its settings, GEMINI_API_KEY included.
+ */
 export const screeningConfig = defineConfig(
   'screening',
-  ScreeningEnv,
+  z.discriminatedUnion('SCREENING_MODEL', [
+    z.object({ SCREENING_MODEL: z.literal('mock') }),
+    z.object({
+      SCREENING_MODEL: z.literal('gemini'),
+      /** Secret (https://aistudio.google.com/api-keys), in .env. */
+      GEMINI_API_KEY: envVar.text(),
+      GEMINI_API_URL: envVar.url('https', 'http'),
+      /** Keep an exact id so a new release can't shift the calibrated thresholds. */
+      GEMINI_MODEL: envVar.text(),
+      /** Give up on one request after this long (it is retried later). */
+      GEMINI_TIMEOUT_MS: envVar.int().min(1000),
+    }),
+  ]),
   (env): ScreeningSettings =>
     env.SCREENING_MODEL === 'gemini'
       ? {

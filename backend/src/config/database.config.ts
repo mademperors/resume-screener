@@ -1,67 +1,55 @@
-import {
-  IsBoolean,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-  ValidateIf,
-} from 'class-validator';
-import { defineConfig, ToBoolean, type ConfigOf } from './define-config.js';
+import { z } from 'zod';
+import { defineConfig, envVar, type ConfigOf } from './define-config.js';
 
-const usesParts = (env: DatabaseEnv) => !env.DATABASE_URL;
+const POSTGRES_PARTS = [
+  'POSTGRES_HOST',
+  'POSTGRES_PORT',
+  'POSTGRES_USER',
+  'POSTGRES_PASSWORD',
+  'POSTGRES_DB',
+] as const;
 
-class DatabaseEnv {
-  /**
-   * A full connection URL, e.g. for a managed database. When unset, the URL
-   * is built from the POSTGRES_* variables, which the Postgres container and
-   * the backup service read too.
-   */
-  @IsOptional()
-  @IsString()
-  DATABASE_URL?: string;
-
-  @ValidateIf(usesParts)
-  @IsString()
-  @IsNotEmpty()
-  POSTGRES_HOST: string;
-
-  @ValidateIf(usesParts)
-  @IsInt()
-  @Min(1)
-  @Max(65_535)
-  POSTGRES_PORT: number;
-
-  @ValidateIf(usesParts)
-  @IsString()
-  @IsNotEmpty()
-  POSTGRES_USER: string;
-
-  /** Secret: set it in .env. */
-  @ValidateIf(usesParts)
-  @IsString()
-  @IsNotEmpty()
-  POSTGRES_PASSWORD: string;
-
-  @ValidateIf(usesParts)
-  @IsString()
-  @IsNotEmpty()
-  POSTGRES_DB: string;
-
-  /** Apply pending migrations when the API starts. Workers never run them. */
-  @ToBoolean()
-  @IsBoolean()
-  DB_RUN_MIGRATIONS: boolean;
-}
-
-export const databaseConfig = defineConfig('database', DatabaseEnv, (env) => ({
-  url:
-    env.DATABASE_URL ??
-    `postgres://${encodeURIComponent(env.POSTGRES_USER)}:${encodeURIComponent(
-      env.POSTGRES_PASSWORD,
-    )}@${env.POSTGRES_HOST}:${env.POSTGRES_PORT}/${encodeURIComponent(env.POSTGRES_DB)}`,
-  runMigrations: env.DB_RUN_MIGRATIONS,
-}));
+export const databaseConfig = defineConfig(
+  'database',
+  z
+    .object({
+      /**
+       * A full connection URL, e.g. for a managed database. When unset, the
+       * URL is built from the POSTGRES_* variables, which the Postgres
+       * container and the backup service read too.
+       */
+      DATABASE_URL: envVar.text().optional(),
+      POSTGRES_HOST: envVar.text().optional(),
+      POSTGRES_PORT: envVar.int().min(1).max(65_535).optional(),
+      POSTGRES_USER: envVar.text().optional(),
+      /** Secret: set it in .env. */
+      POSTGRES_PASSWORD: envVar.text().optional(),
+      POSTGRES_DB: envVar.text().optional(),
+      /** Apply pending migrations when the API starts. Workers never run them. */
+      DB_RUN_MIGRATIONS: envVar.bool(),
+    })
+    .superRefine((env, ctx) => {
+      if (env.DATABASE_URL) {
+        return;
+      }
+      for (const name of POSTGRES_PARTS) {
+        if (env[name] === undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [name],
+            message: `${name} is required unless DATABASE_URL is set`,
+          });
+        }
+      }
+    }),
+  (env) => ({
+    url:
+      env.DATABASE_URL ??
+      `postgres://${encodeURIComponent(env.POSTGRES_USER!)}:${encodeURIComponent(
+        env.POSTGRES_PASSWORD!,
+      )}@${env.POSTGRES_HOST}:${env.POSTGRES_PORT}/${encodeURIComponent(env.POSTGRES_DB!)}`,
+    runMigrations: env.DB_RUN_MIGRATIONS,
+  }),
+);
 
 export type DatabaseConfig = ConfigOf<typeof databaseConfig>;
