@@ -114,13 +114,30 @@ Each stage is an abstract class in `src/processing/stages.ts`, bound in
 |---|---|
 | Text extraction | `DocumentTextExtractor`: PDF via pdfjs, DOCX via its XML. Text a reader can't see (white without a dark background, tiny, transparent, invisible, off-page, hidden runs) is kept apart and never evaluated. Under 50 readable characters: "Could not read file". |
 | Preprocessing | `RuleBasedResumePreprocessor`: keeps contacts for the recruiter; removes them, links, age, gender, nationality and similar from the model's text; removes sentences addressed to AI; flags hidden text or such sentences as "Possible manipulation". |
-| Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching plus experience from stated years or job dates. `jev`: `JevScreeningModel`, not implemented yet. |
+| Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching plus experience from stated years or job dates. `gemini`: `GeminiScreeningModel`, Gemini Decision 1 (needs `GEMINI_API_KEY`). |
 | Scoring | `WeightedScoringEngine`: `score = 100 × Σ(weight × confidence if met) / Σ weight`, per-requirement contributions, "Does not meet requirements" (confidently missing a mandatory requirement) and "Needs manual review" (unsure about one). |
 
-### Connecting Jev
+### Connecting the screening model (Gemini Decision 1)
 
-Implement `JevScreeningModel` in
-`src/processing/screening/jev-screening-model.ts`; its comment lists the
-contract (one verdict per requirement with a confidence in 0..1, which errors
-to throw, env variables for secrets). Then set `SCREENING_MODEL=jev`. Nothing
-else needs to change. `MockScreeningModel` is a working example.
+`GeminiScreeningModel` (`src/processing/screening/gemini-screening-model.ts`)
+calls the Gemini Decisions API (`POST /v1beta/decisions`). The model answers
+typed questions and never writes free text. The whole resume goes in one
+request, with one `choice` question per skill requirement ("met" or
+"not_met"); the model's confidence in its answer becomes the verdict's
+confidence. Experience is not asked of the model: it is read from the text in
+code, like in the mock model, which keeps it repeatable.
+
+1. Create a key in Google AI Studio: https://aistudio.google.com/api-keys
+   (sign in with a Google account, "Create API key").
+2. In `.env`: `SCREENING_MODEL=gemini` and `GEMINI_API_KEY=...` (also
+   `GEMINI_API_URL`, `GEMINI_MODEL` and `GEMINI_TIMEOUT_MS`; see `.env.example`).
+3. On the free tier (200 requests and 50,000 tokens per minute) set
+   `SCREENING_RATE_LIMIT_PER_SECOND=2` and `WORKER_CONCURRENCY=2`. Free-tier
+   prompts may be used by Google to improve its products, so use test resumes
+   only; real candidate data needs a paid project.
+4. Restart the API and the worker.
+
+Timeouts, 429 and 5xx are retried with backoff; other errors fail the resume
+with a readable message (the details go to the log, never the key).
+`MockScreeningModel` stays the default for development, tests and as a demo
+fallback.

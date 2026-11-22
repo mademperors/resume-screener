@@ -11,7 +11,7 @@ const requirements = buildRequirements({
 
 function result(overrides: Partial<ScreeningResult> = {}): ScreeningResult {
   return {
-    modelName: 'jev',
+    modelName: 'gemini',
     modelVersion: '1',
     skills: ['TypeScript'],
     experienceYears: 3,

@@ -6,7 +6,6 @@ import {
   ScreeningModelUnavailableError,
   UnreadableFileError,
 } from './processing-errors.js';
-import { JevScreeningModel } from './screening/jev-screening-model.js';
 
 describe('describeFailure', () => {
   it('retries temporary model and storage problems', () => {
@@ -39,20 +38,5 @@ describe('describeFailure', () => {
     ).toBe(
       'The screening service is temporarily unavailable. Retry processing later.',
     );
-  });
-});
-
-describe('JevScreeningModel before it is implemented', () => {
-  it('fail permanently with a clear message until implemented', async () => {
-    const error = await Promise.resolve()
-      .then(() =>
-        new JevScreeningModel().evaluate({ resumeText: '', requirements: [] }),
-      )
-      .catch((e: unknown) => e);
-    expect(describeFailure(error)).toEqual({
-      retryable: false,
-      userMessage:
-        'Resume processing is not fully set up yet (the Jev screening model is missing). Try again later.',
-    });
   });
 });

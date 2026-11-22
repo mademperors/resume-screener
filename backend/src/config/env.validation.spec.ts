@@ -58,3 +58,33 @@ describe('validateEnv with empty values', () => {
     );
   });
 });
+
+describe('validateEnv for the Gemini model', () => {
+  it('does not need a Gemini key while the mock model is used', () => {
+    const env = validateEnv(required);
+    expect(env.SCREENING_MODEL).toBe('mock');
+    expect(env.GEMINI_API_KEY).toBeUndefined();
+    expect(env.GEMINI_MODEL).toBe('gemini-decision-1');
+    expect(env.GEMINI_TIMEOUT_MS).toBe(15_000);
+  });
+
+  it('requires the key once SCREENING_MODEL=gemini', () => {
+    expect(() =>
+      validateEnv({ ...required, SCREENING_MODEL: 'gemini' }),
+    ).toThrow(/GEMINI_API_KEY/);
+    expect(() =>
+      validateEnv({
+        ...required,
+        SCREENING_MODEL: 'gemini',
+        GEMINI_API_KEY: '',
+      }),
+    ).toThrow(/GEMINI_API_KEY/);
+    expect(
+      validateEnv({
+        ...required,
+        SCREENING_MODEL: 'gemini',
+        GEMINI_API_KEY: 'k',
+      }).GEMINI_API_KEY,
+    ).toBe('k');
+  });
+});
