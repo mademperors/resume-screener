@@ -1,6 +1,19 @@
+import { Injectable } from '@nestjs/common';
 import { getDocument, OPS } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { RESUME_MIME_TYPES } from '../../resumes/file-type.js';
 import type { ExtractedDocument } from '../stages.js';
+import { DocumentReader } from './document-reader.js';
 import { TextCollector } from './text-collector.js';
+
+@Injectable()
+export class PdfReader extends DocumentReader {
+  readonly formatName = 'PDF';
+  readonly mimeTypes = [RESUME_MIME_TYPES.pdf];
+
+  read(file: Buffer): Promise<ExtractedDocument> {
+    return extractPdfText(file);
+  }
+}
 
 /** Resumes are short; this bounds the work on unusual files. */
 const MAX_PAGES = 30;
@@ -8,6 +21,16 @@ const MAX_PAGES = 30;
 const MIN_READABLE_FONT_SIZE = 2;
 /** Text this transparent is invisible. */
 const MIN_VISIBLE_ALPHA = 0.1;
+
+/*
+ * Fill colours. pdfjs turns every colour operator (gray, RGB, CMYK, colour
+ * spaces) into setFillRGBColor with a hex string, so those cover white in any
+ * colour space. What's left are fills that aren't a plain colour.
+ */
+/** `scn` without usable components: nothing is painted. */
+const NO_FILL = 'none';
+/** A pattern or shading: some colour we don't work out; treated as visible. */
+const PATTERN_FILL = 'pattern';
 
 type Matrix = [number, number, number, number, number, number];
 const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0];
@@ -55,8 +78,9 @@ const PAINT_IMAGE_OPS = new Set<number>([
 
 /**
  * Reads the text of a PDF and separates text a reader can't see: invisible
- * render mode, near-transparent, tiny, off the page, or white without a dark
- * shape or image drawn beneath it. Throws when the file isn't a readable PDF.
+ * render mode, no fill colour, near-transparent, tiny, off the page, or white
+ * (in any colour space) without a dark shape or image drawn beneath it.
+ * Throws when the file isn't a readable PDF.
  */
 export async function extractPdfText(file: Buffer): Promise<ExtractedDocument> {
   // pdfjs 6 no longer evaluates font code, which closes CVE-2024-4367.
@@ -177,6 +201,12 @@ function readPage(
       case OPS.setFillRGBColor:
         state.fillColor = typeof args[0] === 'string' ? args[0] : '#000000';
         break;
+      case OPS.setFillTransparent:
+        state.fillColor = NO_FILL;
+        break;
+      case OPS.setFillColorN:
+        state.fillColor = PATTERN_FILL;
+        break;
       case OPS.setGState:
         for (const [key, value] of (args[0] ?? []) as [string, unknown][]) {
           if (key === 'ca' && typeof value === 'number') {
@@ -239,6 +269,7 @@ function readPage(
         if (
           PAINT_FILL_OPS.has(paintOp) &&
           minMax &&
+          state.fillColor !== NO_FILL &&
           !isLight(state.fillColor) &&
           state.fillAlpha >= MIN_VISIBLE_ALPHA
         ) {
@@ -267,7 +298,7 @@ function isHidden(
   if (state.renderMode === 3 || state.renderMode === 7) {
     return true;
   }
-  if (state.fillAlpha < MIN_VISIBLE_ALPHA) {
+  if (state.fillAlpha < MIN_VISIBLE_ALPHA || state.fillColor === NO_FILL) {
     return true;
   }
   if (size > 0 && size < MIN_READABLE_FONT_SIZE) {
@@ -295,7 +326,7 @@ function isHidden(
   return false;
 }
 
-/** White or almost white. */
+/** White or almost white; false for fills that aren't a plain colour. */
 function isLight(hex: string): boolean {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
   if (!match) {

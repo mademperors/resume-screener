@@ -3,7 +3,12 @@ import {
   normalizeSkill,
   type RequirementSpec,
 } from '../../jobs/requirements.js';
-import { containsTerm, KNOWN_SKILLS, spellingsOf } from '../skills.js';
+import {
+  containsTerm,
+  findTerm,
+  KNOWN_SKILLS,
+  spellingsOf,
+} from '../skills.js';
 import type { ExperienceEstimate } from './experience.js';
 
 /*
@@ -78,4 +83,57 @@ export function listSkills(
     }
   }
   return [...found.values()];
+}
+
+/** Longest quote used as evidence. */
+export const MAX_EXCERPT_CHARS = 120;
+
+/**
+ * A short quote around the first place the text names a skill (in any of
+ * its spellings), or null if it never does. Run on the prepared text, so the
+ * quote holds no contacts or personal data.
+ */
+export function skillMention(text: string, skill: string): string | null {
+  const { exact, aliases } = spellingsOf(skill);
+  let first: { index: number; length: number } | null = null;
+  for (const spelling of [exact, ...aliases]) {
+    const found = findTerm(text, spelling);
+    if (found && (!first || found.index < first.index)) {
+      first = found;
+    }
+  }
+  return first ? quoteAround(text, first.index, first.length) : null;
+}
+
+/**
+ * The line holding a match, cut to MAX_EXCERPT_CHARS around it at word
+ * boundaries, with "…" where something was left out.
+ */
+function quoteAround(text: string, index: number, length: number): string {
+  const lineStart = text.lastIndexOf('\n', index) + 1;
+  const lineEnd = text.indexOf('\n', index + length);
+  const end = lineEnd === -1 ? text.length : lineEnd;
+
+  // Centre the match, then give room one side doesn't need to the other.
+  const half = Math.max(0, Math.floor((MAX_EXCERPT_CHARS - length) / 2));
+  let from = Math.max(lineStart, index - half);
+  let to = Math.min(end, index + length + half);
+  from = Math.max(lineStart, to - Math.max(MAX_EXCERPT_CHARS, length));
+  to = Math.min(end, from + Math.max(MAX_EXCERPT_CHARS, length));
+
+  // Don't start or end in the middle of a word.
+  if (from > lineStart && !/\s/.test(text[from - 1])) {
+    const space = text.indexOf(' ', from);
+    if (space !== -1 && space < index) {
+      from = space + 1;
+    }
+  }
+  if (to < end && !/\s/.test(text[to])) {
+    const space = text.lastIndexOf(' ', to);
+    if (space >= index + length) {
+      to = space;
+    }
+  }
+  const quote = text.slice(from, to).trim();
+  return `${from > lineStart ? '…' : ''}${quote}${to < end ? '…' : ''}`;
 }

@@ -148,8 +148,26 @@ export function spellingsOf(skill: string): {
 export function containsTerm(
   text: string,
   term: string,
-  options: { caseSensitive?: boolean } = {},
+  options: TermOptions = {},
 ): boolean {
+  return termPattern(term, options).test(text);
+}
+
+export interface TermOptions {
+  caseSensitive?: boolean;
+}
+
+/** Where a term first occurs as a whole term (see containsTerm), or null. */
+export function findTerm(
+  text: string,
+  term: string,
+  options: TermOptions = {},
+): { index: number; length: number } | null {
+  const match = termPattern(term, options).exec(text);
+  return match ? { index: match.index, length: match[0].length } : null;
+}
+
+function termPattern(term: string, options: TermOptions): RegExp {
   const trimmed = term.trim();
   const caseSensitive =
     options.caseSensitive ??
@@ -161,5 +179,5 @@ export function containsTerm(
   return new RegExp(
     `(?<![\\p{L}\\p{N}+#.])${escaped}(?![\\p{L}\\p{N}+#]|\\.[\\p{L}\\p{N}])`,
     caseSensitive ? 'u' : 'iu',
-  ).test(text);
+  );
 }

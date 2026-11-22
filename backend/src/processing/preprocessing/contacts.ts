@@ -5,7 +5,7 @@ export const EMAIL = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 export const PHONE =
   /(?<![\w+])(?:\+?\d{1,3}[\s.-]?)?(?:\(\d{1,4}\)[\s.-]?)?\d{2,4}(?:[\s.-]?\d{2,4}){2,4}(?![\w])/g;
 export const URL =
-  /\b(?:https?:\/\/|www\.)\S+|\b(?:linkedin\.com|github\.com|gitlab\.com|t\.me|facebook\.com|instagram\.com)\/\S+/gi;
+  /\b(?:https?:\/\/|www\.)\S+|\b(?:linkedin\.com|github\.com|gitlab\.com|t\.me|wa\.me|facebook\.com|instagram\.com|twitter\.com|x\.com|behance\.net|dribbble\.com|stackoverflow\.com|medium\.com|djinni\.co|vk\.com)\/\S+/gi;
 
 const LOCATION_LABEL =
   /^\s*(?:location|address|city|based in|адреса|місто|місце проживання|адрес|город)\s*[:\-–]\s*(.+)$/im;

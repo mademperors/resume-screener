@@ -28,10 +28,13 @@ By role:
   section, CSV download). You don't need to read backend source. With the
   stack running, the same spec is at `https://localhost/api/docs-json`
   (interactive: `/api/docs`).
-- **Screening model:** `backend/src/processing/screening/gemini-screening-model.ts`
-  (contract in its comment), `backend/src/processing/stages.ts` (the
-  interfaces), and `backend/src/processing/screening/mock-screening-model.ts`
-  as a working example. Nothing else needs to change.
+- **Screening model:** `backend/src/processing/stages.ts` (the
+  `ScreeningModel` contract), `screening/gemini-*.ts` (client, typed
+  questions, model) and `screening/mock-screening-model.ts` as examples. A
+  new model needs its settings in `src/config/screening.config.ts` and an
+  entry in `screening/screening-model.provider.ts`; the compiler flags a
+  missing one. A new file format: a `DocumentReader` listed in
+  `extraction/text-extraction.providers.ts` (plus `resumes/file-type.ts`).
 - **Backend:** code is grouped by feature under `backend/src/` (`jobs`,
   `resumes`, `candidates`, `processing`, `export`, `admin`, ...). The resume
   pipeline is in `backend/src/processing/`. Layers per feature: controller →

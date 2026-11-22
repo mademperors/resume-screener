@@ -31,13 +31,36 @@ export class UnreadableFileError extends ProcessingError {
 /** The screening model is temporarily unavailable or rate limited. */
 export class ScreeningModelUnavailableError extends ProcessingError {
   readonly retryable = true;
+  /**
+   * How long the service asked us to wait (its Retry-After), if it said.
+   * The worker then pauses all processing for that long.
+   */
+  readonly retryAfterMs: number | null;
 
-  constructor(options?: { cause?: unknown; detail?: string }) {
+  constructor(options?: {
+    cause?: unknown;
+    detail?: string;
+    retryAfterMs?: number | null;
+  }) {
     super(
       'The screening service is temporarily unavailable. Processing will be retried.',
       options,
     );
+    this.retryAfterMs = options?.retryAfterMs ?? null;
   }
+}
+
+/**
+ * The wait the screening service asked for, found anywhere in the error's
+ * cause chain (the processor wraps errors before they reach the queue).
+ */
+export function requestedRetryDelay(error: unknown): number | null {
+  for (let current = error; current instanceof Error; current = current.cause) {
+    if (current instanceof ScreeningModelUnavailableError) {
+      return current.retryAfterMs;
+    }
+  }
+  return null;
 }
 
 /** A failure that retrying won't fix. */

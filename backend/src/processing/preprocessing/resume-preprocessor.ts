@@ -1,51 +1,56 @@
-import { Injectable } from '@nestjs/common';
-import { normalizeWhitespace } from '../extraction/text-collector.js';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ResumePreprocessor,
   type ExtractedDocument,
   type PreparedResume,
 } from '../stages.js';
-import { isKnownSkillWord } from '../skills.js';
-import { EMAIL, findContacts, PHONE, URL } from './contacts.js';
+import { findContacts } from './contacts.js';
+import { redactPersonalData } from './personal-data.js';
 import {
   containsPromptInjection,
   removePromptInjection,
 } from './prompt-injection.js';
+import { limitForAnalysis, normalizeText } from './text-normalization.js';
 
 /** Less hidden text than this is treated as layout noise, not manipulation. */
 const MIN_HIDDEN_CHARS = 10;
 
 /**
- * Lines with personal data that must not influence the evaluation (age,
- * gender, nationality…) or that only identify the person (address).
- */
-const PERSONAL_DATA_LINE =
-  /^\s*(?:date of birth|birth ?date|born|dob|age|gender|sex|nationality|citizenship|marital status|family status|religion|photo|address|location|дата народження|народився|народилася|вік|стать|національність|громадянство|сімейний стан|віросповідання|фото|адреса|місце проживання|дата рождения|возраст|пол|национальность|гражданство|семейное положение|вероисповедание|адрес)\b\s*[:\-–].*$/gimu;
-
-/**
- * Prepares resume text for the screening model: keeps contacts for the
- * recruiter, removes them and other personal data from the text, drops
- * instructions addressed to AI, and flags hidden text.
+ * Prepares resume text for the screening model: normalises it and bounds its
+ * size, keeps contacts for the recruiter, removes them and other personal
+ * data from the text, drops instructions addressed to AI, and flags hidden
+ * text.
  */
 @Injectable()
 export class RuleBasedResumePreprocessor extends ResumePreprocessor {
+  private readonly logger = new Logger(RuleBasedResumePreprocessor.name);
+
   async prepare(document: ExtractedDocument): Promise<PreparedResume> {
-    const contacts = findContacts(document.text);
+    const normalized = normalizeText(document.text);
+    const text = this.limit(normalized.text);
+    // Text in invisible characters is hidden text like white text is.
+    const hiddenText = [
+      ...document.hiddenText.flatMap((segment) => {
+        const hidden = normalizeText(segment);
+        return [hidden.text, ...hidden.invisible];
+      }),
+      ...normalized.invisible,
+    ];
+
+    const contacts = findContacts(text);
     const notes: string[] = [];
 
-    const hiddenChars = document.hiddenText.join('').replace(/\s/g, '').length;
+    const hiddenChars = hiddenText.join('').replace(/\s/g, '').length;
     if (hiddenChars >= MIN_HIDDEN_CHARS) {
       notes.push(
         `Hidden text found (${hiddenChars} characters in white, tiny or invisible formatting); it was not evaluated.`,
       );
     }
-    if (
-      document.hiddenText.some((segment) => containsPromptInjection(segment))
-    ) {
+    if (hiddenText.some((segment) => containsPromptInjection(segment))) {
       notes.push('Hidden text contains instructions addressed to AI.');
     }
 
-    const injection = removePromptInjection(document.text);
+    const injection = removePromptInjection(text);
     if (injection.removed.length > 0) {
       notes.push(
         `Instructions addressed to AI were removed: "${injection.removed[0]}"` +
@@ -62,36 +67,15 @@ export class RuleBasedResumePreprocessor extends ResumePreprocessor {
       manipulationNotes: notes,
     };
   }
-}
 
-/** Removes contacts and personal data so they can't affect the evaluation. */
-export function redactPersonalData(
-  text: string,
-  fullName: string | null,
-): string {
-  let result = text
-    .replace(PERSONAL_DATA_LINE, '')
-    .replace(EMAIL, '')
-    .replace(URL, '')
-    .replace(PHONE, (match) =>
-      // Keep year ranges and short numbers ("2019 2023", "5 years").
-      match.replace(/\D/g, '').length >= 9 ? '' : match,
-    );
-  if (fullName) {
-    const parts = fullName.split(/\s+/).filter(
-      // A name like "Ruby Smith" must not erase the skill "Ruby".
-      (part) => part.replace(/\./g, '').length >= 3 && !isKnownSkillWord(part),
-    );
-    for (const part of [fullName, ...parts]) {
-      result = result.replace(
-        new RegExp(`(?<!\\p{L})${escapeRegExp(part)}(?!\\p{L})`, 'giu'),
-        '',
+  /** Cuts oversized input; logged, since it changes what is evaluated. */
+  private limit(text: string): string {
+    const limited = limitForAnalysis(text);
+    if (limited.cutChars > 0 || limited.cutWords > 0) {
+      this.logger.warn(
+        `Resume text shortened for analysis: ${limited.cutChars} characters cut from the end, ${limited.cutWords} overlong words cut`,
       );
     }
+    return limited.text;
   }
-  return normalizeWhitespace(result);
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
