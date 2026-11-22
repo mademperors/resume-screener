@@ -44,7 +44,7 @@ the secrets.
 
 In code, settings are grouped by area in `src/config/*.config.ts` (database,
 auth, session, storage, queue, processing, screening, retention, plans,
-admin, app). Each namespace validates its variables at startup, converts
+admin, app). Each namespace validates its variables with a zod schema at startup, converts
 them once (booleans, lists, milliseconds) and checks rules between them.
 `src/config/config.module.ts` loads all of them globally for the API and the
 worker, so any provider just injects what it needs:
