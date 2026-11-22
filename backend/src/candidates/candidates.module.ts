@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { storageConfig } from '../config/storage.config.js';
 import { JobsModule } from '../jobs/jobs.module.js';
 import { ScoringConfigVersion } from '../jobs/scoring-config-version.entity.js';
 import { Resume } from '../resumes/resume.entity.js';
@@ -13,7 +11,6 @@ import { Evaluation } from './evaluation.entity.js';
 
 @Module({
   imports: [
-    ConfigModule.forFeature(storageConfig),
     TypeOrmModule.forFeature([
       Candidate,
       Evaluation,

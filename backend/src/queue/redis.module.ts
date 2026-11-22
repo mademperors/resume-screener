@@ -5,7 +5,6 @@ import {
   Module,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { queueConfig, type QueueConfig } from '../config/queue.config.js';
 
@@ -34,7 +33,6 @@ class RedisConnectionCloser implements OnApplicationShutdown {
 }
 
 @Module({
-  imports: [ConfigModule.forFeature(queueConfig)],
   providers: [
     {
       provide: REDIS_CONNECTION,

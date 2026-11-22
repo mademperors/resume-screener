@@ -1,13 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { processingConfig } from '../config/processing.config.js';
-import { queueConfig } from '../config/queue.config.js';
-import { retentionConfig } from '../config/retention.config.js';
 import {
   screeningConfig,
   type ScreeningConfig,
 } from '../config/screening.config.js';
-import { sessionConfig } from '../config/session.config.js';
 import { ResumeRemovalModule } from '../resumes/resume-removal.module.js';
 import { DocumentTextExtractor } from './extraction/document-text-extractor.js';
 import { RuleBasedResumePreprocessor } from './preprocessing/resume-preprocessor.js';
@@ -31,14 +26,7 @@ import {
  * provider. The screening model is chosen with SCREENING_MODEL.
  */
 @Module({
-  imports: [
-    ConfigModule.forFeature(processingConfig),
-    ConfigModule.forFeature(queueConfig),
-    ConfigModule.forFeature(retentionConfig),
-    ConfigModule.forFeature(screeningConfig),
-    ConfigModule.forFeature(sessionConfig),
-    ResumeRemovalModule,
-  ],
+  imports: [ResumeRemovalModule],
   providers: [
     ResumeProcessor,
     ResumeSweeper,
