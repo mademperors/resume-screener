@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { storageConfig } from '../config/storage.config.js';
 import { JobsDataModule } from '../jobs/jobs-data.module.js';
 import { JobsModule } from '../jobs/jobs.module.js';
 import { ResumeRemovalModule } from '../resumes/resume-removal.module.js';
@@ -11,7 +9,6 @@ import { CandidatesService } from './candidates.service.js';
 
 @Module({
   imports: [
-    ConfigModule.forFeature(storageConfig),
     CandidatesDataModule,
     JobsDataModule,
     ResumesDataModule,

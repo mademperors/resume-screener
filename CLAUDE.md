@@ -50,8 +50,8 @@ By role:
 - **New settings:** add the variable to the namespace it belongs to in
   `src/config/*.config.ts` (or a new `defineConfig` file), with no default in
   code. Put its default in `.env.defaults`; a secret goes in `.env.example`
-  with an empty or development value instead. Register the namespace with
-  `ConfigModule.forFeature` in the modules that inject it. Touch
+  with an empty or development value instead. A new namespace goes in
+  `ALL_CONFIGS` in `src/config/config.module.ts` (loaded globally). Touch
   `docker-compose.yml` only for values that differ inside the Docker network.
 - **Data access:** TypeORM queries live only in `*.repository.ts`. A module
   owns the entities in its folder; other modules go through its repository

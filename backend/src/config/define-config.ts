@@ -13,10 +13,8 @@ export type Env = Record<string, string | undefined>;
  * environment, validates them and builds the typed settings a module uses.
  *
  * - Default values live in `.env.defaults`, not in code; secrets in `.env`.
- * - Register it where it is used: `ConfigModule.forFeature(storageConfig)`,
- *   then inject `@Inject(storageConfig.KEY) config: StorageConfig`. A process
- *   only validates the namespaces of the modules it loads, so the worker
- *   never asks for JWT_SECRET.
+ * - List it in config.module.ts (worker and/or API); it is then global:
+ *   inject `@Inject(storageConfig.KEY) config: StorageConfig` anywhere.
  * - `load(env)` builds the settings from a plain object, for tests and for
  *   code outside Nest (the migration CLI).
  */

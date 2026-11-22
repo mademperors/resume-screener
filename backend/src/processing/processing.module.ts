@@ -1,18 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { SessionsModule } from '../auth/sessions.module.js';
 import { CandidatesDataModule } from '../candidates/candidates-data.module.js';
 import { JobsDataModule } from '../jobs/jobs-data.module.js';
 import { ResumesDataModule } from '../resumes/resumes-data.module.js';
 import { EvaluationRecorder } from './evaluation-recorder.js';
-import { processingConfig } from '../config/processing.config.js';
-import { queueConfig } from '../config/queue.config.js';
-import { retentionConfig } from '../config/retention.config.js';
 import {
   screeningConfig,
   type ScreeningConfig,
 } from '../config/screening.config.js';
-import { sessionConfig } from '../config/session.config.js';
 import { ResumeRemovalModule } from '../resumes/resume-removal.module.js';
 import { DocumentTextExtractor } from './extraction/document-text-extractor.js';
 import { RuleBasedResumePreprocessor } from './preprocessing/resume-preprocessor.js';
@@ -37,11 +32,6 @@ import {
  */
 @Module({
   imports: [
-    ConfigModule.forFeature(processingConfig),
-    ConfigModule.forFeature(queueConfig),
-    ConfigModule.forFeature(retentionConfig),
-    ConfigModule.forFeature(screeningConfig),
-    ConfigModule.forFeature(sessionConfig),
     JobsDataModule,
     ResumesDataModule,
     CandidatesDataModule,
