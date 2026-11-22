@@ -19,7 +19,7 @@ Valkey and SeaweedFS.
 | Queue | BullMQ on Valkey 8 (open-source Redis fork) |
 | File storage | SeaweedFS through its S3 API, volumes encrypted |
 | HTTPS | Caddy (local certificates for `*.localhost`, Let's Encrypt for real domains) |
-| Tests | Vitest: unit tests in `src/**/*.spec.ts`, e2e in `test/*.e2e-spec.ts` |
+| Tests | Vitest: unit tests in `test/unit/`, integration tests against real Postgres, Valkey and SeaweedFS in `test/integration/` |
 
 ## Authentication and companies (FR 2.1, NFR 4.1–4.5, SR 1.1.3)
 

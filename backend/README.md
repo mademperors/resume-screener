@@ -65,15 +65,28 @@ For checking by hand (demo, review, a deployment), follow
 files are in `docs/manual-testing/files` (`npm run test-files` recreates them).
 
 ```bash
-npm test                      # unit tests
+npm test                      # unit tests: pure logic, no services needed
 npm run lint
 
-# e2e: needs the docker compose services and a separate database
-docker compose exec postgres psql -U screener -c "CREATE DATABASE screener_e2e"
-DATABASE_URL=postgres://screener:screener@localhost:5432/screener_e2e npm run test:e2e
-# add S3_ENDPOINT=http://localhost:8333 S3_ACCESS_KEY_ID=screener
-# S3_SECRET_ACCESS_KEY=screener-dev-secret to also test real file storage
+# integration tests: the app against real Postgres, Valkey and SeaweedFS
+docker compose up -d postgres valkey seaweedfs
+npm run test:integration
 ```
+
+All tests live in `test/`, apart from the code:
+
+| Folder | What | Fakes |
+|---|---|---|
+| `test/unit/` | Pure functions and classes, mirroring `src/` | none, or plain objects |
+| `test/integration/` | The whole app over HTTP and its services, one file per feature | only the edges: Google sign-in, the queue (recorded, except `worker.spec.ts`) and, where a test needs it, the pipeline stages |
+| `test/support/` | Harness, documents, fixtures, scripted stages | |
+
+Tests import the code as `@src/...`. The integration run recreates the
+`screener_test` database from the migrations, clears Valkey database 1, and
+each file starts from empty tables, so files can't see each other's data. It
+fails with a clear message when a service is down instead of skipping tests.
+Point it at other services with `TEST_DATABASE_URL`, `TEST_REDIS_URL` and
+`TEST_S3_ENDPOINT` (see `test/support/test-env.ts`).
 
 ## API specification
 
