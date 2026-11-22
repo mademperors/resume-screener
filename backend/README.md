@@ -158,9 +158,9 @@ Each stage is an abstract class in `src/processing/stages.ts`, bound in
 
 | Stage | Implementation |
 |---|---|
-| Text extraction | `DocumentTextExtractor`: PDF via pdfjs, DOCX via its XML. Text a reader can't see (white without a dark background, tiny, transparent, invisible, off-page, hidden runs) is kept apart and never evaluated. Under 50 readable characters: "Could not read file". |
-| Preprocessing | `RuleBasedResumePreprocessor`: keeps contacts for the recruiter; removes them, links, age, gender, nationality and similar from the model's text; removes sentences addressed to AI; flags hidden text or such sentences as "Possible manipulation". |
-| Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching plus experience from stated years or job dates. `gemini`: `GeminiScreeningModel`, Gemini Decision 1 (needs `GEMINI_API_KEY`). |
+| Text extraction | `DocumentTextExtractor` picks a `DocumentReader` by MIME type: `PdfReader` (pdfjs) or `DocxReader` (its XML). To read another format, add a reader to `extraction/text-extraction.providers.ts`. Text a reader can't see (white without a dark background, tiny, transparent, invisible, off-page, hidden runs) is kept apart and never evaluated. Under 50 readable characters: "Could not read file". |
+| Preprocessing | `RuleBasedResumePreprocessor`: normalises Unicode and caps the text (100,000 characters, 200 per word); keeps contacts for the recruiter; removes them, links, age, gender, nationality, address and similar from the model's text; removes sentences addressed to AI; flags hidden text or such sentences as "Possible manipulation". |
+| Screening model | Chosen with `SCREENING_MODEL` from the registry in `screening/screening-model.provider.ts`. `mock` (default): `MockScreeningModel`, deterministic keyword and alias matching plus experience from stated years or job dates. `gemini`: `GeminiScreeningModel`, Gemini Decision 1 (needs `GEMINI_API_KEY`). |
 | Scoring | `WeightedScoringEngine`: `score = 100 × Σ(weight × confidence if met) / Σ weight`, per-requirement contributions, "Does not meet requirements" (confidently missing a mandatory requirement) and "Needs manual review" (unsure about one). |
 
 ### Connecting the screening model (Gemini Decision 1)
@@ -171,7 +171,13 @@ typed questions and never writes free text. The whole resume goes in one
 request, with one `choice` question per skill requirement ("met" or
 "not_met"); the model's confidence in its answer becomes the verdict's
 confidence. Experience is not asked of the model: it is read from the text in
-code, like in the mock model, which keeps it repeatable.
+code, like in the mock model, which keeps it repeatable. Each skill verdict's
+evidence quotes where the resume names the skill.
+
+The code is split by concern: `gemini-decisions-client.ts` (HTTP, timeout,
+errors, the wait Google asks for), `gemini-skill-questions.ts` (the questions
+and how answers are read) and `gemini-screening-model.ts` (putting a result
+together).
 
 1. Create a key in Google AI Studio: https://aistudio.google.com/api-keys
    (sign in with a Google account, "Create API key").
@@ -185,6 +191,9 @@ code, like in the mock model, which keeps it repeatable.
 4. Restart the API and the worker.
 
 Timeouts, 429 and 5xx are retried with backoff; other errors fail the resume
-with a readable message (the details go to the log, never the key).
+with a readable message (the details go to the log, never the key). When
+Google says how long to wait (`Retry-After`, or `RetryInfo` in the error
+body), every worker pauses that long, at most 5 minutes at a time, and the
+resume goes back to the queue without using up an attempt.
 `MockScreeningModel` stays the default for development, tests and as a demo
 fallback.

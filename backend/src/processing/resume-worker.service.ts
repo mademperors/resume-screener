@@ -4,7 +4,7 @@ import {
   Logger,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { Queue, Worker } from 'bullmq';
+import { Queue, Worker, type Job } from 'bullmq';
 import type { Redis } from 'ioredis';
 import {
   processingConfig,
@@ -17,7 +17,11 @@ import {
 } from '../config/retention.config.js';
 import { RESUME_QUEUE, type ResumeTask } from '../queue/processing-queue.js';
 import { createRedisClient } from '../queue/redis.module.js';
-import { ResumeProcessor } from './resume-processor.service.js';
+import { requestedRetryDelay } from './processing-errors.js';
+import {
+  ResumeProcessor,
+  type ProcessOutcome,
+} from './resume-processor.service.js';
 import { ResumeSweeper } from './resume-sweeper.service.js';
 import { RetentionService } from './retention.service.js';
 
@@ -26,11 +30,26 @@ const SWEEP_SCHEDULER_ID = 'sweep-resumes';
 const RETENTION_SCHEDULER_ID = 'data-retention';
 
 /**
+ * Longest pause one Retry-After causes. A longer wait (a daily quota) is
+ * spent in steps of this, trying once in between. Well under
+ * STALE_RESUME_MINUTES, so the sweeper doesn't think waiting resumes are stuck.
+ */
+export const MAX_RATE_LIMIT_PAUSE_MS = 5 * 60_000;
+/**
+ * How many times a resume goes back to the queue for a Retry-After without
+ * using up an attempt. After that a Retry-After counts as an ordinary
+ * temporary failure, so a service that never recovers can't keep a resume
+ * queued forever.
+ */
+export const MAX_RATE_LIMITED_REQUEUES = 10;
+
+/**
  * Background processing. Started by the worker process (src/worker.ts), or by
  * the API when RUN_WORKER_IN_API=true (handy in development).
  *
  * Scale out by running more worker processes, or up with WORKER_CONCURRENCY.
- * The request limit to the screening model is shared by all workers.
+ * The request limit to the screening model is shared by all workers, and so
+ * is a pause the model asks for with Retry-After.
  */
 @Injectable()
 export class ResumeWorker implements OnApplicationShutdown {
@@ -43,6 +62,8 @@ export class ResumeWorker implements OnApplicationShutdown {
 
   private connection: Redis | null = null;
   private workers: Worker[] = [];
+  /** Used to pause all workers when the screening model asks us to wait. */
+  private resumeQueue: Queue | null = null;
   private maintenanceQueue: Queue | null = null;
 
   constructor(
@@ -73,13 +94,10 @@ export class ResumeWorker implements OnApplicationShutdown {
     const connection = createRedisClient(this.redisUrl);
     this.connection = connection;
 
+    this.resumeQueue = new Queue(RESUME_QUEUE, { connection });
     const processing = new Worker<ResumeTask>(
       RESUME_QUEUE,
-      (job) =>
-        this.processor.process(job.data, {
-          attemptsMade: job.attemptsMade,
-          maxAttempts: job.opts.attempts ?? 1,
-        }),
+      (job) => this.processResume(job),
       {
         connection,
         concurrency: this.concurrency,
@@ -123,6 +141,8 @@ export class ResumeWorker implements OnApplicationShutdown {
     // Waits for running tasks to finish; unfinished ones are picked up again.
     await Promise.all(this.workers.map((worker) => worker.close()));
     this.workers = [];
+    await this.resumeQueue?.close();
+    this.resumeQueue = null;
     await this.maintenanceQueue?.close();
     this.maintenanceQueue = null;
     await this.connection?.quit().catch(() => this.connection?.disconnect());
@@ -131,6 +151,42 @@ export class ResumeWorker implements OnApplicationShutdown {
 
   onApplicationShutdown(): Promise<void> {
     return this.stop();
+  }
+
+  private async processResume(job: Job<ResumeTask>): Promise<ProcessOutcome> {
+    try {
+      return await this.processor.process(job.data, {
+        attemptsMade: job.attemptsMade,
+        maxAttempts: job.opts.attempts ?? 1,
+      });
+    } catch (error) {
+      await this.waitIfAsked(job, error);
+      throw error;
+    }
+  }
+
+  /**
+   * When the screening service says how long to wait (Retry-After), pauses
+   * every worker for that long instead of letting them all keep calling it,
+   * and puts the job back in the queue without using up one of its attempts:
+   * being rate limited says nothing about the resume.
+   */
+  private async waitIfAsked(job: Job<ResumeTask>, error: unknown) {
+    const requested = requestedRetryDelay(error);
+    if (!requested || !this.resumeQueue) {
+      return;
+    }
+    const pauseMs = Math.min(requested, MAX_RATE_LIMIT_PAUSE_MS);
+    // Shared by all workers through Valkey.
+    await this.resumeQueue.rateLimit(pauseMs);
+    this.logger.warn(
+      `The screening service asked to wait ${Math.ceil(requested / 1000)}s; pausing resume processing for ${Math.ceil(pauseMs / 1000)}s`,
+    );
+    // Starts of this job that weren't attempts: earlier returns to the queue.
+    const requeues = job.attemptsStarted - job.attemptsMade - 1;
+    if (requeues < MAX_RATE_LIMITED_REQUEUES) {
+      throw Worker.RateLimitError();
+    }
   }
 
   private watch(worker: Worker, label: string): void {

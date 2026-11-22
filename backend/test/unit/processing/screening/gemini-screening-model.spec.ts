@@ -1,14 +1,11 @@
 import { buildRequirements } from '@src/jobs/requirements.js';
-import {
-  describeFailure,
-  PermanentProcessingError,
-  ScreeningModelUnavailableError,
-} from '@src/processing/processing-errors.js';
+import { PermanentProcessingError } from '@src/processing/processing-errors.js';
 import {
   GeminiScreeningModel,
+  INFERRED_EVIDENCE,
   MAX_RESUME_CHARS,
-  type GeminiOptions,
 } from '@src/processing/screening/gemini-screening-model.js';
+import { choice, reply, stubGemini } from '../../../support/gemini-api.js';
 
 const NOW = new Date('2026-11-19T00:00:00Z');
 const requirements = buildRequirements({
@@ -16,44 +13,11 @@ const requirements = buildRequirements({
   preferredSkills: ['Docker'],
   minExperienceYears: 3,
 });
-const RESUME = 'Backend engineer with 5+ years of commercial experience.';
-
-function choice(value: 'met' | 'not_met', confidence: number) {
-  return { type: 'choice', choice: value, confidence, probabilities: {} };
-}
-
-function reply(body: unknown, status = 200): Response {
-  return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
-    status,
-  });
-}
-
-interface Call {
-  url: string;
-  init: RequestInit;
-  body: {
-    model: string;
-    input: string;
-    questions: Record<string, { instructions: string }>;
-  };
-}
-
-function setup(respond: () => Response) {
-  const calls: Call[] = [];
-  const fetchMock = ((url: string, init: RequestInit) => {
-    calls.push({ url, init, body: JSON.parse(init.body as string) });
-    return Promise.resolve(respond());
-  }) as unknown as typeof fetch;
-  const options: GeminiOptions = {
-    apiKey: 'secret-key',
-    apiUrl: 'https://gemini.test/v1beta/decisions',
-    model: 'gemini-decision-1',
-    timeoutMs: 5000,
-    fetch: fetchMock,
-    now: () => NOW,
-  };
-  return { model: new GeminiScreeningModel(options), calls };
-}
+const RESUME = [
+  'Backend engineer with 5+ years of commercial experience.',
+  'Built payment APIs in TypeScript and Node.js.',
+  'Containerised services, deployed with Kubernetes.',
+].join('\n');
 
 const okAnswers = {
   model: 'gemini-decision-1',
@@ -64,11 +28,9 @@ const okAnswers = {
   },
 };
 
-function failure(model: GeminiScreeningModel, resumeText = RESUME) {
-  return model
-    .evaluate({ resumeText, requirements })
-    .then(() => undefined)
-    .catch((error: unknown) => error);
+function setup(respond: () => Response) {
+  const { client, calls } = stubGemini(respond);
+  return { model: new GeminiScreeningModel(client, () => NOW), calls };
 }
 
 describe('GeminiScreeningModel', () => {
@@ -78,13 +40,7 @@ describe('GeminiScreeningModel', () => {
     const result = await model.evaluate({ resumeText: RESUME, requirements });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe('https://gemini.test/v1beta/decisions');
-    expect(calls[0].init.method).toBe('POST');
-    expect(calls[0].init.headers).toMatchObject({
-      'x-goog-api-key': 'secret-key',
-    });
-    expect(calls[0].body.model).toBe('gemini-decision-1');
-    expect(calls[0].body.input).toContain(RESUME);
+    expect(calls[0].body.input).toBe(`Resume:\n${RESUME}`);
     expect(Object.keys(calls[0].body.questions)).toEqual(['r0', 'r1', 'r2']);
     expect(calls[0].body.questions.r0).toMatchObject({
       type: 'choice',
@@ -99,7 +55,7 @@ describe('GeminiScreeningModel', () => {
         requirementId: 'skill:typescript',
         met: true,
         confidence: 0.9,
-        evidence: 'Found in the resume',
+        evidence: 'Built payment APIs in TypeScript and Node.js.',
       },
       {
         requirementId: 'skill:postgresql',
@@ -108,10 +64,11 @@ describe('GeminiScreeningModel', () => {
         evidence: null,
       },
       {
+        // Met, but the resume never names Docker.
         requirementId: 'skill:docker',
         met: true,
         confidence: 0.5,
-        evidence: 'Found in the resume',
+        evidence: INFERRED_EVIDENCE,
       },
       {
         requirementId: 'experience',
@@ -121,10 +78,30 @@ describe('GeminiScreeningModel', () => {
       },
     ]);
     expect(result.skills).toEqual(
-      expect.arrayContaining(['TypeScript', 'Docker']),
+      expect.arrayContaining(['TypeScript', 'Docker', 'Node.js', 'Kubernetes']),
     );
     expect(result.skills).not.toContain('PostgreSQL');
     expect(result.experienceYears).toBe(5);
+  });
+
+  it('quotes the mention behind a "not met" too', async () => {
+    const { model } = setup(() =>
+      reply({
+        answers: {
+          r0: choice('not_met', 0.8),
+          r1: choice('not_met', 0.8),
+          r2: choice('not_met', 0.8),
+        },
+      }),
+    );
+    const { verdicts } = await model.evaluate({
+      resumeText: 'Java developer. Would like to learn Postgres next year.',
+      requirements,
+    });
+    expect(verdicts[1]).toMatchObject({
+      met: false,
+      evidence: 'Java developer. Would like to learn Postgres next year.',
+    });
   });
 
   it('reads experience from the text and does not ask the model about it', async () => {
@@ -184,65 +161,8 @@ describe('GeminiScreeningModel', () => {
     expect(calls[0].body.input.length).toBeLessThan(MAX_RESUME_CHARS + 50);
   });
 
-  it('retries on rate limits, overload and server errors', async () => {
-    for (const status of [429, 529, 500, 503]) {
-      const { model } = setup(() => reply('busy', status));
-      const error = await failure(model);
-      expect(error).toBeInstanceOf(ScreeningModelUnavailableError);
-      expect(describeFailure(error).retryable).toBe(true);
-    }
-  });
-
-  it('retries when the request fails or times out', async () => {
-    const { model } = setup(() => {
-      throw new TypeError('fetch failed');
-    });
-    expect(await failure(model)).toBeInstanceOf(ScreeningModelUnavailableError);
-  });
-
-  it('retries when the connection drops while the answer is being read', async () => {
-    const { model } = setup(() => {
-      const response = reply(okAnswers);
-      response.json = () => Promise.reject(new TypeError('terminated'));
-      return response;
-    });
-    expect(await failure(model)).toBeInstanceOf(ScreeningModelUnavailableError);
-  });
-
-  it('does not retry requests the API rejects, and keeps the details private', async () => {
-    for (const status of [400, 413, 422]) {
-      const { model } = setup(() => reply('bad request body', status));
-      const error = await failure(model);
-      expect(error).toBeInstanceOf(PermanentProcessingError);
-      expect(describeFailure(error).retryable).toBe(false);
-      expect(describeFailure(error).userMessage).not.toContain('bad request');
-    }
-  });
-
-  it('treats the 400 Google sends for an unknown key as a credentials problem', async () => {
-    const { model } = setup(() =>
-      reply(
-        '{"error":{"message":"API key not valid. Please pass a valid API key."}}',
-        400,
-      ),
-    );
-    const failureInfo = describeFailure(await failure(model));
-    expect(failureInfo.retryable).toBe(false);
-    expect(failureInfo.userMessage).toContain('API key');
-  });
-
-  it('names the API key when Google refuses it, without printing the key', async () => {
-    const { model } = setup(() => reply('no', 401));
-    const error = await failure(model);
-    expect(describeFailure(error).retryable).toBe(false);
-    expect(describeFailure(error).userMessage).toContain('API key');
-    expect((error as Error).message).not.toContain('secret-key');
-  });
-
-  it('fails permanently on an answer it cannot use', async () => {
+  it('fails permanently when an answer is missing or has the wrong shape', async () => {
     const broken = [
-      'not json',
-      { nothing: true },
       { answers: { r0: choice('met', 0.9) } },
       {
         answers: {
@@ -261,7 +181,9 @@ describe('GeminiScreeningModel', () => {
     ];
     for (const body of broken) {
       const { model } = setup(() => reply(body));
-      expect(await failure(model)).toBeInstanceOf(PermanentProcessingError);
+      await expect(
+        model.evaluate({ resumeText: RESUME, requirements }),
+      ).rejects.toBeInstanceOf(PermanentProcessingError);
     }
   });
 });

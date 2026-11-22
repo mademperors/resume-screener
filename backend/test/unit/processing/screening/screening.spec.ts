@@ -2,8 +2,34 @@ import { buildRequirements } from '@src/jobs/requirements.js';
 import { containsTerm, spellingsOf } from '@src/processing/skills.js';
 import { estimateExperience } from '@src/processing/screening/experience.js';
 import { MockScreeningModel } from '@src/processing/screening/mock-screening-model.js';
+import {
+  MAX_EXCERPT_CHARS,
+  skillMention,
+} from '@src/processing/screening/text-signals.js';
 
 const NOW = new Date('2026-11-19T00:00:00Z');
+
+describe('skillMention', () => {
+  it('quotes the line of the first mention, in any spelling', () => {
+    const text = 'Summary\nBuilt services on Postgres 15.\nLater: PostgreSQL.';
+    expect(skillMention(text, 'PostgreSQL')).toBe(
+      'Built services on Postgres 15.',
+    );
+  });
+
+  it('cuts a long line around the mention at word boundaries', () => {
+    const filler = 'worked on many unrelated things for years';
+    const text = `${filler} ${filler} and then Kotlin services ${filler} ${filler} ${filler}`;
+    const quote = skillMention(text, 'Kotlin')!;
+    expect(quote).toContain('Kotlin services');
+    expect(quote.length).toBeLessThanOrEqual(MAX_EXCERPT_CHARS + 2);
+    expect(quote).toMatch(/^…\w.*\w…$/);
+  });
+
+  it('returns null when the skill is not named', () => {
+    expect(skillMention('Java and Spring', 'JavaScript')).toBeNull();
+  });
+});
 
 describe('containsTerm', () => {
   it('matches whole terms only', () => {

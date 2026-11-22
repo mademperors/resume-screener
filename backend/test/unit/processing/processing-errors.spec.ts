@@ -3,9 +3,30 @@ import {
   describeFailure,
   exhaustedMessage,
   PermanentProcessingError,
+  requestedRetryDelay,
   ScreeningModelUnavailableError,
   UnreadableFileError,
 } from '@src/processing/processing-errors.js';
+
+describe('requestedRetryDelay', () => {
+  it('finds the wait the model asked for, also behind wrapping errors', () => {
+    const unavailable = new ScreeningModelUnavailableError({
+      retryAfterMs: 30_000,
+    });
+    expect(requestedRetryDelay(unavailable)).toBe(30_000);
+    expect(
+      requestedRetryDelay(new Error('will retry', { cause: unavailable })),
+    ).toBe(30_000);
+  });
+
+  it('is null when no wait was asked for', () => {
+    expect(requestedRetryDelay(new ScreeningModelUnavailableError())).toBe(
+      null,
+    );
+    expect(requestedRetryDelay(new Error('other'))).toBeNull();
+    expect(requestedRetryDelay('not an error')).toBeNull();
+  });
+});
 
 describe('describeFailure', () => {
   it('retries temporary model and storage problems', () => {

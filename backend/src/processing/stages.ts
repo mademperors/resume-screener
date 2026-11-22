@@ -42,7 +42,8 @@ export interface CandidateContacts {
 export interface PreparedResume {
   /**
    * What the model may see: contacts and personal data removed, hidden text
-   * and instructions addressed to AI removed.
+   * and instructions addressed to AI removed. Unicode-normalised and bounded
+   * in length, so the model's own text analysis stays fast.
    */
   text: string;
   /** Kept for the recruiter only; never sent to the model. */
@@ -77,7 +78,9 @@ export interface ScreeningResult {
 export abstract class ScreeningModel {
   /**
    * Throws ScreeningModelUnavailableError for temporary problems (retried
-   * with backoff) and PermanentProcessingError for anything retrying won't fix.
+   * with backoff; with `retryAfterMs` when the service said how long to
+   * wait, which pauses all workers) and PermanentProcessingError for
+   * anything retrying won't fix.
    */
   abstract evaluate(input: ScreeningInput): Promise<ScreeningResult>;
 }

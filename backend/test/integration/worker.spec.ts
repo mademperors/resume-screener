@@ -100,4 +100,46 @@ describe('Background worker with BullMQ', () => {
       ['Bob', 45],
     ]);
   });
+
+  it('waits as long as the model asks, without using up attempts', async () => {
+    const job = await h
+      .http()
+      .post('/api/v1/jobs')
+      .set(bearer(token))
+      .send({
+        title: 'ML Engineer',
+        description: 'Models',
+        requiredSkills: ['Python'],
+        minExperienceYears: 1,
+      })
+      .expect(201);
+    // More rate-limit answers than PROCESSING_MAX_ATTEMPTS (5): if they used
+    // up attempts, the resume would fail.
+    const waitMs = 300;
+    const answers = 6;
+    for (let i = 0; i < answers; i += 1) {
+      stages.errors.model.push(
+        new ScreeningModelUnavailableError({ retryAfterMs: waitMs }),
+      );
+    }
+    const callsBefore = stages.modelCalls.length;
+    const started = Date.now();
+
+    const upload = await h
+      .http()
+      .post(`/api/v1/jobs/${job.body.id}/resumes`)
+      .set(bearer(token))
+      .attach('files', fakeResume('Cy', 'Python years: 2'), 'cy.pdf')
+      .expect(202);
+    const resume = await waitForStatus(
+      upload.body.results[0].resumeId,
+      ResumeStatus.Processed,
+    );
+
+    expect(stages.modelCalls.length - callsBefore).toBe(answers + 1);
+    // Each answer paused processing for the time asked.
+    expect(Date.now() - started).toBeGreaterThanOrEqual(answers * waitMs);
+    expect(resume.attempts).toBe(answers + 1);
+    expect(resume.lastError).toBeNull();
+  });
 });

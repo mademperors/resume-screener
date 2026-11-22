@@ -16,9 +16,12 @@ What is left:
    answer shape).
 2. Free tier limits: 200 requests and 50,000 tokens per minute. Set
    `SCREENING_RATE_LIMIT_PER_SECOND=2` and `WORKER_CONCURRENCY=2`; Google 429
-   answers are retried. Free-tier prompts may be used to improve Google's
-   products: test resumes only. A paid project is needed for real candidate
-   data.
+   answers are retried. When Google says how long to wait (a `Retry-After`
+   header or `RetryInfo` in the error body), all workers pause that long (at
+   most 5 minutes at a time) and the resume goes back to the queue without
+   using up an attempt. Check that the real API sends one of the two.
+   Free-tier prompts may be used to improve Google's products: test resumes
+   only. A paid project is needed for real candidate data.
 3. Check that the Gemini API is available from the deployment region (it was
    not verified for Ukraine).
 4. Calibrate on real resumes. For a choice question the confidence is the
@@ -30,14 +33,16 @@ What is left:
 5. Check NFR 6.1: score the same resume and job several times; results must
    stay within 5%. The API has no temperature setting, so measure it, and add
    a test (or script) that repeats the same input N times.
-6. Decide whether to show recruiters more than "Found in the resume" as
-   evidence: the model returns no quote, only an answer and its confidence.
-7. Resumes over 150,000 characters are cut (the model reads up to 262,144
-   tokens). Check this on real resumes.
-8. Text analysis is slow on one pathological input: a single 300,000-character
-   "word" takes about 20 seconds in `estimateExperience` (found while testing).
-   Normal resumes take milliseconds; consider a length cap before extraction.
-9. Keep `MockScreeningModel` as the fallback for development, tests and the
+6. Evidence: the model returns no quote, so each skill verdict quotes the
+   line where the resume names the skill (or one of its spellings in
+   `src/processing/skills.ts`). A "met" for a skill the text never names says
+   "Not named directly; the model judged it from the resume as a whole".
+   Check on real resumes how often that happens and whether it convinces
+   recruiters.
+7. The text is cut to 100,000 characters before analysis (preprocessing),
+   and the Gemini model sends at most 150,000 (the model reads up to 262,144
+   tokens). Check on real resumes that nothing useful is cut.
+8. Keep `MockScreeningModel` as the fallback for development, tests and the
    demo if the API is unavailable.
 
 ## 2. Frontend (Frontend engineer)
@@ -102,13 +107,30 @@ The API is complete for every screen in SR 1.5.3; the contract is
 ### Known limitations to keep in mind
 
 - The mock model matches keywords and aliases; it doesn't understand
-  context ("no experience with Docker" counts as Docker). The real model replaces it.
+  context ("no experience with Docker" counts as Docker). The real model
+  replaces it. Its evidence names the spelling it matched ("Mentions
+  Postgres") rather than quoting the resume like the Gemini model.
 - Name detection uses the first short line that looks like a name; unusual
   layouts can give an empty name (the recruiter still sees the file).
-- Prompt-injection detection uses a fixed list of phrases. New wording can
-  get through, but hidden text is always excluded regardless.
+- Prompt-injection detection uses a fixed list of phrases (English,
+  Ukrainian, Russian), matched after Unicode normalisation, so invisible
+  characters, look-alike letters and styled or spaced-out letters don't
+  hide them. New wording can still get through, but hidden text is always
+  excluded regardless.
+- Personal data in running text (birth dates, age, gender, family status,
+  citizenship, street addresses, social handles, document numbers) is found
+  by patterns. Unusual wording can get through, e.g. a birth year without
+  "born", religion in a sentence, or a postal code on its own.
 - Hidden-text detection doesn't catch text covered by an image, text the
   same colour as a non-white background, or text cut off by a clipping path.
+  PDF text filled with a pattern or gradient counts as visible. In DOCX,
+  formatting that comes from a style (`w:rStyle`, `w:pStyle`, document
+  defaults) rather than the run itself isn't resolved, so text hidden or
+  coloured white through a style counts as visible; nor are hand-made files
+  that use another XML prefix than `w:` or remap theme colours.
+- When the screening model asks to wait (Retry-After) on a resume's last
+  attempt, that resume fails as before and the workers don't pause; the
+  next resume to hit the limit pauses them.
 - Scanned resumes are not read (no OCR); they get "Could not read file", as
   the requirements specify.
 - The duplicate check compares exact file contents within one job; the same

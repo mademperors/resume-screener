@@ -91,9 +91,9 @@ Each stage is an interface, so it can be replaced without touching the rest.
 
 | Stage | What it does |
 |---|---|
-| Text extraction | PDF via pdfjs, DOCX from its XML (headers, body, tables, text boxes, footers). Text a reader can't see is set aside and never evaluated: white text without a dark background, tiny, transparent, invisible or off-page text, hidden Word runs. White text on a coloured sidebar counts as visible. Fewer than 50 readable characters (a scan) gives "Could not read file". |
-| Preprocessing | Finds the name, email, phone and location for the recruiter, then removes them, links, and age, gender, nationality and similar from the text the model sees (FR 2.7.3, NFR 5.3). Removes sentences addressed to AI ("ignore previous instructions…", English, Ukrainian, Russian). Hidden text or such sentences flag **Possible manipulation**, with the reason shown on the card. |
-| Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching for skills, and experience from stated years or job dates (education skipped). Returns a verdict and a confidence (0–1) per requirement. `gemini`: `GeminiScreeningModel`: one request to the Gemini Decisions API (`gemini-decision-1`) per resume, one `choice` question (met / not met) per skill, the model's confidence becomes the verdict's confidence. Experience and the skills list come from the text, not from the model. Needs `GEMINI_API_KEY`. |
+| Text extraction | One reader per format, chosen by MIME type (adding a format means adding a reader). PDF via pdfjs, DOCX from its XML (the headers and footers Word displays, body, tables, text boxes, footnotes; not comments). Text a reader can't see is set aside and never evaluated: white text (in RGB, gray, CMYK, or a DOCX theme colour) without a dark background, tiny, transparent, unfilled, invisible or off-page text, hidden Word runs. White text on a coloured sidebar counts as visible. Fewer than 50 readable characters (a scan) gives "Could not read file". |
+| Preprocessing | Normalises the text (NFKC; zero-width, bidirectional and other invisible characters removed; text in invisible Unicode tag characters counts as hidden) and bounds it: at most 100,000 characters and 200 per word, so analysis time doesn't depend on how the file was built. Finds the name, email, phone and location for the recruiter, then removes them, links, and age, birth date, gender, family status, citizenship, address, social handles and document numbers, also in running text, from the text the model sees (FR 2.7.3, NFR 5.3). Removes sentences addressed to AI ("ignore previous instructions…", English, Ukrainian, Russian), also when disguised with look-alike letters or invisible characters. Hidden text or such sentences flag **Possible manipulation**, with the reason shown on the card. |
+| Screening model | `SCREENING_MODEL=mock` (default): `MockScreeningModel`, deterministic keyword and alias matching for skills, and experience from stated years or job dates (education skipped). Returns a verdict and a confidence (0–1) per requirement. `gemini`: `GeminiScreeningModel`: one request to the Gemini Decisions API (`gemini-decision-1`) per resume, one `choice` question (met / not met) per skill, the model's confidence becomes the verdict's confidence; the evidence quotes where the resume names the skill. Experience and the skills list come from the text, not from the model. Needs `GEMINI_API_KEY`. |
 | Scoring | `score = 100 × Σ(weight × confidence, if met) / Σ weight`, with the job's weights. Each requirement's points are stored. Flags: **Does not meet requirements** (confidently missing a mandatory requirement) and **Needs manual review** (confidence under the job's threshold on a mandatory requirement). The model never sets the score (NFR 6.3, SR 1.1.8). |
 
 The model's result is checked before scoring: one verdict per requirement,
@@ -110,7 +110,10 @@ confidences within 0..1. Same input gives the same result (NFR 6.1).
   up to 3 times.
 - Recruiters can retry one resume or all failed resumes of a job (FR 2.6.3).
 - Requests to the model are limited per second across all workers
-  (`SCREENING_RATE_LIMIT_PER_SECOND`).
+  (`SCREENING_RATE_LIMIT_PER_SECOND`). When the model asks to wait
+  (`Retry-After`, or Google's `RetryInfo`), all workers pause that long (at
+  most 5 minutes at a time) and the resume is queued again without using up
+  an attempt (up to 10 times).
 - Scale out by running more workers, or up with `WORKER_CONCURRENCY` (NFR 2.2).
 
 ## Candidates, progress, export (FR 2.6, 2.8–2.10, 2.12)
