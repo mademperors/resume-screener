@@ -1,15 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-import { Candidate } from '../candidates/candidate.entity.js';
-import { Evaluation } from '../candidates/evaluation.entity.js';
-import { CandidateFlag } from '../candidates/evaluation.types.js';
-import { Job } from '../jobs/job.entity.js';
-import { normalizeSkill } from '../jobs/requirements.js';
-import { ScoringConfigVersion } from '../jobs/scoring-config-version.entity.js';
+import { JobsRepository } from '../jobs/jobs.repository.js';
 import type { ResumeTask } from '../queue/processing-queue.js';
-import { Resume, ResumeStatus } from '../resumes/resume.entity.js';
+import { ResumeStatus, type Resume } from '../resumes/resume.entity.js';
+import { ResumesRepository } from '../resumes/resumes.repository.js';
 import { FileNotFoundError, FileStorage } from '../storage/file-storage.js';
+import { EvaluationRecorder } from './evaluation-recorder.js';
 import {
   describeFailure,
   exhaustedMessage,
@@ -22,9 +17,6 @@ import {
   ScoringEngine,
   ScreeningModel,
   TextExtractor,
-  type PreparedResume,
-  type ScoreResult,
-  type ScreeningResult,
 } from './stages.js';
 
 export type ProcessOutcome = 'processed' | 'unreadable' | 'failed' | 'skipped';
@@ -46,19 +38,22 @@ export class RetryLaterError extends Error {
 /**
  * Runs one resume through the pipeline and owns its status changes:
  * Queued -> Processing -> Processed | Could not read file | Processing failed,
- * or back to Queued while retries remain.
+ * or back to Queued while retries remain. The stages are injected (see
+ * stages.ts); saving the result is EvaluationRecorder's job.
  */
 @Injectable()
 export class ResumeProcessor {
   private readonly logger = new Logger(ResumeProcessor.name);
 
   constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly resumes: ResumesRepository,
+    private readonly jobs: JobsRepository,
     private readonly storage: FileStorage,
     private readonly extractor: TextExtractor,
     private readonly preprocessor: ResumePreprocessor,
     private readonly model: ScreeningModel,
     private readonly scoring: ScoringEngine,
+    private readonly recorder: EvaluationRecorder,
   ) {}
 
   /**
@@ -69,7 +64,7 @@ export class ResumeProcessor {
     task: ResumeTask,
     attempt: AttemptInfo,
   ): Promise<ProcessOutcome> {
-    const resume = await this.claim(task.resumeId);
+    const resume = await this.resumes.claim(task.resumeId);
     if (!resume) {
       // Deleted, or already finished by another task for the same resume.
       return 'skipped';
@@ -81,41 +76,15 @@ export class ResumeProcessor {
     }
   }
 
-  /** Marks the resume Processing, unless it no longer waits for processing. */
-  private async claim(resumeId: string): Promise<Resume | null> {
-    const result = await this.dataSource
-      .createQueryBuilder()
-      .update(Resume)
-      .set({
-        status: ResumeStatus.Processing,
-        processingStartedAt: () => 'now()',
-        attempts: () => '"attempts" + 1',
-      })
-      .where('id = :resumeId', { resumeId })
-      .andWhere('status IN (:...statuses)', {
-        statuses: [ResumeStatus.Queued, ResumeStatus.Processing],
-      })
-      .execute();
-    if (!result.affected) {
-      return null;
-    }
-    return this.dataSource.getRepository(Resume).findOneBy({ id: resumeId });
-  }
-
   private async run(resume: Resume): Promise<ProcessOutcome> {
-    const job = await this.dataSource.getRepository(Job).findOne({
-      where: { id: resume.jobId },
-      withDeleted: true,
-    });
+    const job = await this.jobs.findByIdWithDeleted(resume.jobId);
     if (!job || job.deletedAt) {
       throw new PermanentProcessingError(
         'The job for this resume was deleted.',
       );
     }
     // Always score with the job's current requirements.
-    const config = await this.dataSource
-      .getRepository(ScoringConfigVersion)
-      .findOneByOrFail({ id: job.currentConfigVersionId ?? '' });
+    const config = await this.jobs.findConfig(job.currentConfigVersionId ?? '');
 
     const file = await this.readFile(resume);
     const document = await this.extractor.extract(file, resume.mimeType);
@@ -127,14 +96,14 @@ export class ResumeProcessor {
     assertValidScreeningResult(screening, config.requirements);
     const score = this.scoring.score(config, screening, prepared);
 
-    const saved = await this.save(
+    const saved = await this.recorder.record({
       resume,
       job,
       config,
       prepared,
       screening,
       score,
-    );
+    });
     return saved ? 'processed' : 'skipped';
   }
 
@@ -152,92 +121,6 @@ export class ResumeProcessor {
     }
   }
 
-  /** Returns false if the resume was deleted while it was being processed. */
-  private save(
-    resume: Resume,
-    job: Job,
-    config: ScoringConfigVersion,
-    prepared: PreparedResume,
-    screening: ScreeningResult,
-    score: ScoreResult,
-  ): Promise<boolean> {
-    const flags = [...score.flags];
-    if (
-      prepared.manipulationDetected &&
-      !flags.includes(CandidateFlag.PossibleManipulation)
-    ) {
-      flags.push(CandidateFlag.PossibleManipulation);
-    }
-    const matchScore = roundTo(Math.min(100, Math.max(0, score.matchScore)), 2);
-    const experienceYears =
-      screening.experienceYears === null
-        ? null
-        : roundTo(screening.experienceYears, 1);
-
-    return this.dataSource.transaction(async (manager) => {
-      const current = await manager.findOne(Resume, {
-        where: { id: resume.id },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!current) {
-        return false;
-      }
-
-      // Upsert by resume: a re-score updates the same candidate and keeps
-      // the recruiter's decision.
-      await manager.upsert(
-        Candidate,
-        {
-          companyId: resume.companyId,
-          jobId: resume.jobId,
-          resumeId: resume.id,
-          fullName: prepared.contacts.fullName,
-          email: prepared.contacts.email,
-          phone: prepared.contacts.phone,
-          location: prepared.contacts.location,
-          matchScore,
-          experienceYears,
-          skills: screening.skills,
-          skillsNormalized: [...new Set(screening.skills.map(normalizeSkill))],
-          missingSkills: score.missingSkills,
-          flags,
-          belowThreshold: matchScore < job.minMatchScore,
-        },
-        { conflictPaths: ['resumeId'] },
-      );
-      const candidate = await manager.findOneByOrFail(Candidate, {
-        resumeId: resume.id,
-      });
-      const evaluation = await manager.save(
-        manager.create(Evaluation, {
-          companyId: resume.companyId,
-          candidateId: candidate.id,
-          configVersionId: config.id,
-          modelName: screening.modelName,
-          modelVersion: screening.modelVersion,
-          matchScore,
-          experienceYears,
-          verdicts: screening.verdicts,
-          contributions: score.contributions,
-          foundSkills: score.foundSkills,
-          missingSkills: score.missingSkills,
-          flags,
-          notes: prepared.manipulationNotes,
-        }),
-      );
-      await manager.update(Candidate, candidate.id, {
-        latestEvaluationId: evaluation.id,
-      });
-      await manager.update(Resume, resume.id, {
-        status: ResumeStatus.Processed,
-        processedAt: new Date(),
-        lastError: null,
-        lastErrorRetryable: false,
-      });
-      return true;
-    });
-  }
-
   private async handleFailure(
     resume: Resume,
     error: unknown,
@@ -246,7 +129,7 @@ export class ResumeProcessor {
     const detail = error instanceof Error ? error.message : String(error);
     if (error instanceof UnreadableFileError) {
       this.logger.log(`Resume ${resume.id} has no readable text: ${detail}`);
-      await this.finish(
+      await this.resumes.finishFailed(
         resume.id,
         ResumeStatus.CouldNotReadFile,
         error.userMessage,
@@ -261,20 +144,7 @@ export class ResumeProcessor {
       this.logger.warn(
         `Resume ${resume.id} attempt ${attempt.attemptsMade + 1}/${attempt.maxAttempts} failed, will retry: ${detail}`,
       );
-      await this.dataSource
-        .createQueryBuilder()
-        .update(Resume)
-        .set({
-          status: ResumeStatus.Queued,
-          queuedAt: () => 'now()',
-          lastError: failure.userMessage,
-          lastErrorRetryable: true,
-        })
-        .where('id = :id AND status = :status', {
-          id: resume.id,
-          status: ResumeStatus.Processing,
-        })
-        .execute();
+      await this.resumes.returnToQueue(resume.id, failure.userMessage);
       throw new RetryLaterError(resume.id, { cause: error });
     }
 
@@ -282,7 +152,7 @@ export class ResumeProcessor {
       `Resume ${resume.id} failed${failure.retryable ? ' after all retries' : ''}: ${detail}`,
       failure.retryable && error instanceof Error ? error.stack : undefined,
     );
-    await this.finish(
+    await this.resumes.finishFailed(
       resume.id,
       ResumeStatus.ProcessingFailed,
       failure.retryable ? exhaustedMessage(failure) : failure.userMessage,
@@ -290,31 +160,4 @@ export class ResumeProcessor {
     );
     return 'failed';
   }
-
-  private async finish(
-    resumeId: string,
-    status: ResumeStatus.CouldNotReadFile | ResumeStatus.ProcessingFailed,
-    message: string,
-    retryable: boolean,
-  ): Promise<void> {
-    await this.dataSource
-      .createQueryBuilder()
-      .update(Resume)
-      .set({
-        status,
-        processedAt: () => 'now()',
-        lastError: message,
-        lastErrorRetryable: retryable,
-      })
-      .where('id = :id AND status = :processing', {
-        id: resumeId,
-        processing: ResumeStatus.Processing,
-      })
-      .execute();
-  }
-}
-
-function roundTo(value: number, digits: number): number {
-  const factor = 10 ** digits;
-  return Math.round(value * factor) / factor;
 }

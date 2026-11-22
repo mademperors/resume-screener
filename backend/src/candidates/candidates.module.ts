@@ -1,24 +1,19 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { JobsDataModule } from '../jobs/jobs-data.module.js';
 import { JobsModule } from '../jobs/jobs.module.js';
-import { ScoringConfigVersion } from '../jobs/scoring-config-version.entity.js';
-import { Resume } from '../resumes/resume.entity.js';
-import { ResumesModule } from '../resumes/resumes.module.js';
-import { Candidate } from './candidate.entity.js';
+import { ResumeRemovalModule } from '../resumes/resume-removal.module.js';
+import { ResumesDataModule } from '../resumes/resumes-data.module.js';
+import { CandidatesDataModule } from './candidates-data.module.js';
 import { CandidatesController } from './candidates.controller.js';
 import { CandidatesService } from './candidates.service.js';
-import { Evaluation } from './evaluation.entity.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Candidate,
-      Evaluation,
-      ScoringConfigVersion,
-      Resume,
-    ]),
+    CandidatesDataModule,
+    JobsDataModule,
+    ResumesDataModule,
     JobsModule,
-    ResumesModule,
+    ResumeRemovalModule,
   ],
   controllers: [CandidatesController],
   providers: [CandidatesService],

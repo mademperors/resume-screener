@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
 import { plansConfig, type PlansConfig } from '../config/plans.config.js';
-import { Company, CompanyPlan } from './company.entity.js';
+import { CompaniesRepository } from './companies.repository.js';
+import { CompanyPlan, type Company } from './company.entity.js';
 
 export interface CompanyPlanInfo {
   plan: CompanyPlan;
@@ -17,7 +16,7 @@ export class CompanyPlansService {
   private readonly planLimits: Record<CompanyPlan, number>;
 
   constructor(
-    @InjectRepository(Company) private readonly companies: Repository<Company>,
+    private readonly companies: CompaniesRepository,
     @Inject(plansConfig.KEY) config: PlansConfig,
   ) {
     this.planLimits = {
@@ -50,14 +49,7 @@ export class CompanyPlansService {
   }
 
   search(query: string | undefined, limit: number): Promise<Company[]> {
-    const term = query?.trim();
-    return this.companies.find({
-      where: term
-        ? [{ name: ILike(`%${term}%`) }, { googleDomain: ILike(`%${term}%`) }]
-        : {},
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
+    return this.companies.search(query?.trim() ?? '', limit);
   }
 
   /**
@@ -69,7 +61,7 @@ export class CompanyPlansService {
     plan: CompanyPlan,
     customRateLimitPerMinute: number | null | undefined,
   ): Promise<Company | null> {
-    const company = await this.companies.findOneBy({ id: companyId });
+    const company = await this.companies.findById(companyId);
     if (!company) {
       return null;
     }

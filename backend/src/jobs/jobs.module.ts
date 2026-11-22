@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Job } from './job.entity.js';
+import { CandidatesDataModule } from '../candidates/candidates-data.module.js';
+import { ResumesDataModule } from '../resumes/resumes-data.module.js';
+import { JobsDataModule } from './jobs-data.module.js';
 import { JobsController } from './jobs.controller.js';
 import { JobsService } from './jobs.service.js';
-import { ScoringConfigVersion } from './scoring-config-version.entity.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Job, ScoringConfigVersion])],
+  imports: [JobsDataModule, ResumesDataModule, CandidatesDataModule],
   controllers: [JobsController],
   providers: [JobsService],
   exports: [JobsService],

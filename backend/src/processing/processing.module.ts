@@ -1,4 +1,9 @@
 import { Module } from '@nestjs/common';
+import { SessionsModule } from '../auth/sessions.module.js';
+import { CandidatesDataModule } from '../candidates/candidates-data.module.js';
+import { JobsDataModule } from '../jobs/jobs-data.module.js';
+import { ResumesDataModule } from '../resumes/resumes-data.module.js';
+import { EvaluationRecorder } from './evaluation-recorder.js';
 import {
   screeningConfig,
   type ScreeningConfig,
@@ -26,8 +31,15 @@ import {
  * provider. The screening model is chosen with SCREENING_MODEL.
  */
 @Module({
-  imports: [ResumeRemovalModule],
+  imports: [
+    JobsDataModule,
+    ResumesDataModule,
+    CandidatesDataModule,
+    SessionsModule,
+    ResumeRemovalModule,
+  ],
   providers: [
+    EvaluationRecorder,
     ResumeProcessor,
     ResumeSweeper,
     ResumeWorker,

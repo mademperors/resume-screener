@@ -34,7 +34,10 @@ By role:
   as a working example. Nothing else needs to change.
 - **Backend:** code is grouped by feature under `backend/src/` (`jobs`,
   `resumes`, `candidates`, `processing`, `export`, `admin`, ...). The resume
-  pipeline is in `backend/src/processing/`.
+  pipeline is in `backend/src/processing/`. Layers per feature: controller →
+  service (rules, tenant checks) → repository (all TypeORM). Each
+  `*-data.module.ts` exports a feature's repositories and depends on nothing
+  else, so features can read each other's data without import cycles.
 
 ## Rules for changes
 
@@ -51,6 +54,12 @@ By role:
   with an empty or development value instead. A new namespace goes in
   `ALL_CONFIGS` in `src/config/config.module.ts` (loaded globally). Touch
   `docker-compose.yml` only for values that differ inside the Docker network.
+- **Data access:** TypeORM queries live only in `*.repository.ts`. A module
+  owns the entities in its folder; other modules go through its repository
+  or service, never `Repository<TheirEntity>`, `manager.find(TheirEntity)`
+  or raw SQL on its tables. Services use `DataSource` only to open a
+  transaction (`db.transaction(tx => ...)`) and pass `tx` to repository
+  methods, so a change across modules stays atomic.
 - **Tenant isolation:** load company-owned records through
   `assertOwnedByCompany` (or a service's `getOwned`), so another company's
   record answers 403.
@@ -59,7 +68,9 @@ By role:
 - **Error messages** are readable English without technical codes; they go
   through the global exception filter.
 - **Code style:** ES modules with `.js` in relative imports; abstract classes
-  as DI tokens for replaceable parts (storage, queue, pipeline stages).
+  as DI tokens for replaceable parts at the edges (storage, queue, pipeline
+  stages, `IdentityVerifier`, `RateLimiter`). Don't wrap things that have one
+  implementation and no external dependency.
 - **Tests:** in `backend/test/`, never next to the code. Pure logic goes in
   `test/unit/`; anything touching the database, Redis or storage is an
   integration test in `test/integration/` against the real services. Don't
