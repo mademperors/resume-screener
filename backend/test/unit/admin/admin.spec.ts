@@ -3,10 +3,10 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Repository } from 'typeorm';
 import { AdminTokenGuard } from '@src/admin/admin-token.guard.js';
+import type { CompaniesRepository } from '@src/companies/companies.repository.js';
 import { CompanyPlansService } from '@src/companies/company-plans.service.js';
-import { CompanyPlan, type Company } from '@src/companies/company.entity.js';
+import { CompanyPlan } from '@src/companies/company.entity.js';
 
 const TOKEN = 'a'.repeat(40);
 
@@ -48,7 +48,7 @@ describe('AdminTokenGuard', () => {
 describe('CompanyPlansService', () => {
   // Only the pure plan logic; finding and changing companies is covered by
   // test/integration/plans.spec.ts.
-  const plans = new CompanyPlansService({} as Repository<Company>, {
+  const plans = new CompanyPlansService({} as CompaniesRepository, {
     standardRateLimit: 200,
     extendedRateLimit: 1000,
   });

@@ -3,7 +3,7 @@ import {
   cleanJobSkills,
   resolveScoring,
   sameRequirements,
-} from '@src/jobs/jobs.service.js';
+} from '@src/jobs/job-rules.js';
 import { buildRequirements, DEFAULT_SCORING } from '@src/jobs/requirements.js';
 
 describe('cleanJobSkills', () => {

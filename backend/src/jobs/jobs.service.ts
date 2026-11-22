@@ -1,68 +1,62 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository, type EntityManager } from 'typeorm';
-import { Candidate } from '../candidates/candidate.entity.js';
-import { RequestValidationException } from '../common/http-exception.filter.js';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, type EntityManager } from 'typeorm';
+import { CandidatesRepository } from '../candidates/candidates.repository.js';
 import type { Principal } from '../common/principal.js';
 import { assertOwnedByCompany } from '../common/tenant.js';
-import { Resume } from '../resumes/resume.entity.js';
+import { ResumesRepository } from '../resumes/resumes.repository.js';
 import {
   scoringOf,
   type CreateJobDto,
-  type ScoringSettingsInputDto,
   type UpdateJobDto,
 } from './dto/job.dto.js';
 import { Job, JobStatus } from './job.entity.js';
 import {
+  cleanJobSkills,
+  resolveScoring,
+  sameRequirements,
+} from './job-rules.js';
+import { JobsRepository } from './jobs.repository.js';
+import {
   buildRequirements,
-  cleanSkills,
   DEFAULT_SCORING,
-  normalizeSkill,
   type JobRequirementsInput,
-  type RequirementSpec,
-  type ScoringSettings,
 } from './requirements.js';
-import { ScoringConfigVersion } from './scoring-config-version.entity.js';
+import type { ScoringConfigVersion } from './scoring-config-version.entity.js';
 
 export interface JobWithVersion {
   job: Job;
   configVersion: number;
 }
 
+/**
+ * Jobs and their scoring config versions. Other modules load a job through
+ * `getOwned`, which applies the tenant check.
+ */
 @Injectable()
 export class JobsService {
   constructor(
-    @InjectRepository(Job) private readonly jobs: Repository<Job>,
-    @InjectRepository(ScoringConfigVersion)
-    private readonly configs: Repository<ScoringConfigVersion>,
-    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly jobs: JobsRepository,
+    private readonly resumes: ResumesRepository,
+    private readonly candidates: CandidatesRepository,
+    @InjectDataSource() private readonly db: DataSource,
   ) {}
 
   async list(companyId: string, status?: JobStatus): Promise<JobWithVersion[]> {
-    const jobs = await this.jobs.find({
-      where: { companyId, ...(status ? { status } : {}) },
-      order: { createdAt: 'DESC' },
-    });
-    const versionIds = jobs
-      .map((job) => job.currentConfigVersionId)
-      .filter((id): id is string => id !== null);
-    const versions = versionIds.length
-      ? await this.configs.find({
-          where: { id: In(versionIds) },
-          select: { id: true, version: true },
-        })
-      : [];
-    const versionById = new Map(versions.map((v) => [v.id, v.version]));
+    const jobs = await this.jobs.listByCompany(companyId, status);
+    const versions = await this.jobs.versionNumbers(
+      jobs.flatMap((job) => job.currentConfigVersionId ?? []),
+    );
     return jobs.map((job) => ({
       job,
-      configVersion: versionById.get(job.currentConfigVersionId ?? '') ?? 0,
+      configVersion: versions.get(job.currentConfigVersionId ?? '') ?? 0,
     }));
   }
 
   /** Loads a job of the principal's company: 404 if missing, 403 if foreign. */
   async getOwned(companyId: string, jobId: string): Promise<Job> {
     return assertOwnedByCompany(
-      await this.jobs.findOneBy({ id: jobId }),
+      await this.jobs.findById(jobId),
       companyId,
       'job',
     );
@@ -73,10 +67,8 @@ export class JobsService {
     return { job, configVersion: await this.versionNumberOf(job) };
   }
 
-  async getCurrentConfig(job: Job): Promise<ScoringConfigVersion> {
-    return this.configs.findOneByOrFail({
-      id: job.currentConfigVersionId ?? '',
-    });
+  getCurrentConfig(job: Job): Promise<ScoringConfigVersion> {
+    return this.jobs.findConfig(job.currentConfigVersionId ?? '');
   }
 
   async create(
@@ -91,9 +83,9 @@ export class JobsService {
       ...skills,
       minExperienceYears: dto.minExperienceYears,
     });
-    return this.dataSource.transaction(async (manager) => {
-      const job = await manager.save(
-        manager.create(Job, {
+    return this.db.transaction(async (tx) => {
+      const job = await this.jobs.create(
+        {
           ...scoring,
           companyId: principal.companyId,
           title: dto.title,
@@ -106,13 +98,12 @@ export class JobsService {
           closedAt: null,
           currentConfigVersionId: null,
           createdByUserId: principal.kind === 'user' ? principal.userId : null,
-        }),
+        },
+        tx,
       );
-      const config = await this.saveConfigVersion(manager, job, 1);
+      const config = await this.saveConfigVersion(job, 1, tx);
       job.currentConfigVersionId = config.id;
-      await manager.update(Job, job.id, {
-        currentConfigVersionId: config.id,
-      });
+      await this.jobs.update(job.id, { currentConfigVersionId: config.id }, tx);
       return { job, configVersion: config.version };
     });
   }
@@ -127,15 +118,13 @@ export class JobsService {
     dto: UpdateJobDto,
   ): Promise<JobWithVersion & { rescoreSuggested: boolean }> {
     await this.getOwned(companyId, jobId);
-    return this.dataSource.transaction(async (manager) => {
+    return this.db.transaction(async (tx) => {
       // Lock the job so concurrent edits can't create the same version twice.
-      const job = await manager.findOneOrFail(Job, {
-        where: { id: jobId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      const current = await manager.findOneByOrFail(ScoringConfigVersion, {
-        id: job.currentConfigVersionId ?? '',
-      });
+      const job = await this.jobs.lockForUpdate(jobId, tx);
+      const current = await this.jobs.findConfigInTransaction(
+        job.currentConfigVersionId ?? '',
+        tx,
+      );
 
       const skills = cleanJobSkills(
         dto.requiredSkills ?? job.requiredSkills,
@@ -170,21 +159,20 @@ export class JobsService {
 
       let config = current;
       if (requirementsChanged) {
-        config = await this.saveConfigVersion(
-          manager,
-          job,
-          current.version + 1,
-        );
+        config = await this.saveConfigVersion(job, current.version + 1, tx);
         job.currentConfigVersionId = config.id;
       }
-      await manager.save(job);
+      await this.jobs.save(job, tx);
 
       if (minMatchScoreChanged) {
-        await this.refreshThresholdFlags(manager, job);
+        await this.candidates.refreshBelowThreshold(
+          job.id,
+          job.minMatchScore,
+          tx,
+        );
       }
       const rescoreSuggested =
-        requirementsChanged &&
-        (await manager.exists(Resume, { where: { jobId: job.id } }));
+        requirementsChanged && (await this.resumes.existsForJob(job.id, tx));
       return { job, configVersion: config.version, rescoreSuggested };
     });
   }
@@ -217,151 +205,25 @@ export class JobsService {
     if (!job.currentConfigVersionId) {
       return 0;
     }
-    const config = await this.configs.findOne({
-      where: { id: job.currentConfigVersionId },
-      select: { id: true, version: true },
-    });
-    return config?.version ?? 0;
+    const versions = await this.jobs.versionNumbers([
+      job.currentConfigVersionId,
+    ]);
+    return versions.get(job.currentConfigVersionId) ?? 0;
   }
 
   private saveConfigVersion(
-    manager: EntityManager,
     job: Job,
     version: number,
+    tx: EntityManager,
   ): Promise<ScoringConfigVersion> {
-    return manager.save(
-      manager.create(ScoringConfigVersion, {
+    return this.jobs.createConfig(
+      {
         jobId: job.id,
         version,
         requirements: buildRequirements(job, scoringOf(job)),
         manualReviewConfidenceThreshold: job.manualReviewThreshold,
-      }),
+      },
+      tx,
     );
   }
-
-  /** The threshold only moves candidates between the main list and the bottom. */
-  private async refreshThresholdFlags(
-    manager: EntityManager,
-    job: Job,
-  ): Promise<void> {
-    await manager
-      .createQueryBuilder()
-      .update(Candidate)
-      .set({
-        belowThreshold: () =>
-          `("matchScore" IS NOT NULL AND "matchScore" < ${Number(job.minMatchScore)})`,
-      })
-      .where('jobId = :jobId', { jobId: job.id })
-      .execute();
-  }
-}
-
-/**
- * Removes duplicates and rejects a skill listed as both required and
- * preferred, which would make its weight ambiguous.
- */
-export function cleanJobSkills(
-  requiredSkills: readonly string[],
-  preferredSkills: readonly string[],
-): { requiredSkills: string[]; preferredSkills: string[] } {
-  const required = cleanSkills(requiredSkills);
-  const preferred = cleanSkills(preferredSkills);
-  if (required.length === 0) {
-    throw new RequestValidationException([
-      { field: 'requiredSkills', messages: ['Add at least one value.'] },
-    ]);
-  }
-  const requiredKeys = new Set(required.map(normalizeSkill));
-  const overlap = preferred.filter((skill) =>
-    requiredKeys.has(normalizeSkill(skill)),
-  );
-  if (overlap.length > 0) {
-    throw new RequestValidationException([
-      {
-        field: 'preferredSkills',
-        messages: overlap.map(
-          (skill) => `${skill} is already a required skill. List it only once.`,
-        ),
-      },
-    ]);
-  }
-  return { requiredSkills: required, preferredSkills: preferred };
-}
-
-/**
- * The job's scoring settings after applying the input over the current
- * ones. Per-skill weights must name one of the job's skills; weights for
- * skills no longer in the job are dropped. At least one requirement must
- * carry weight, or every candidate would score 0.
- */
-export function resolveScoring(
-  current: Readonly<ScoringSettings>,
-  input: ScoringSettingsInputDto | undefined,
-  job: JobRequirementsInput,
-): ScoringSettings {
-  const jobSkills = new Map(
-    [...job.requiredSkills, ...job.preferredSkills].map((skill) => [
-      normalizeSkill(skill),
-      skill,
-    ]),
-  );
-  const unknown: string[] = [];
-  const skillWeights = new Map<string, { skill: string; weight: number }>();
-  for (const entry of input?.skillWeights ?? current.skillWeights) {
-    const skill = jobSkills.get(normalizeSkill(entry.skill));
-    if (skill) {
-      skillWeights.set(normalizeSkill(skill), { skill, weight: entry.weight });
-    } else if (input?.skillWeights) {
-      unknown.push(entry.skill);
-    }
-  }
-  if (unknown.length > 0) {
-    throw new RequestValidationException([
-      {
-        field: 'scoring.skillWeights',
-        messages: unknown.map(
-          (skill) => `${skill} is not one of this job's skills.`,
-        ),
-      },
-    ]);
-  }
-
-  const scoring: ScoringSettings = {
-    requiredSkillWeight:
-      input?.requiredSkillWeight ?? current.requiredSkillWeight,
-    preferredSkillWeight:
-      input?.preferredSkillWeight ?? current.preferredSkillWeight,
-    experienceWeight: input?.experienceWeight ?? current.experienceWeight,
-    skillWeights: [...skillWeights.values()],
-    manualReviewThreshold:
-      input?.manualReviewThreshold ?? current.manualReviewThreshold,
-  };
-  const totalWeight = buildRequirements(job, scoring).reduce(
-    (sum, requirement) => sum + requirement.weight,
-    0,
-  );
-  if (totalWeight <= 0) {
-    throw new RequestValidationException([
-      {
-        field: 'scoring',
-        messages: ['At least one requirement needs a weight above 0.'],
-      },
-    ]);
-  }
-  return scoring;
-}
-
-/** Compares what affects scoring; renaming "typescript" to "TypeScript" doesn't. */
-export function sameRequirements(
-  a: readonly RequirementSpec[],
-  b: readonly RequirementSpec[],
-): boolean {
-  const key = (r: RequirementSpec) =>
-    `${r.id}|${r.mandatory}|${r.weight}|${r.minYears ?? ''}`;
-  const left = a.map(key).sort();
-  const right = b.map(key).sort();
-  return (
-    left.length === right.length &&
-    left.every((value, index) => value === right[index])
-  );
 }

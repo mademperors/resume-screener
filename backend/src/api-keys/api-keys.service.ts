@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'node:crypto';
-import { Repository } from 'typeorm';
 import { randomToken, safeEqual, sha256Hex } from '../common/crypto.js';
 import { assertOwnedByCompany } from '../common/tenant.js';
-import { ApiKey } from './api-key.entity.js';
+import type { ApiKey } from './api-key.entity.js';
+import { ApiKeysRepository } from './api-keys.repository.js';
 
 // Format: rsk_<12 hex prefix>_<43 base64url secret>
 const KEY_PATTERN = /^rsk_([0-9a-f]{12})_[A-Za-z0-9_-]{43}$/;
@@ -12,10 +11,7 @@ const LAST_USED_RESOLUTION_MS = 60_000;
 
 @Injectable()
 export class ApiKeysService {
-  constructor(
-    @InjectRepository(ApiKey)
-    private readonly apiKeys: Repository<ApiKey>,
-  ) {}
+  constructor(private readonly apiKeys: ApiKeysRepository) {}
 
   /** Returns the saved key and its plaintext, which is never retrievable again. */
   async create(
@@ -25,36 +21,31 @@ export class ApiKeysService {
   ): Promise<{ apiKey: ApiKey; plaintext: string }> {
     const prefix = randomBytes(6).toString('hex');
     const plaintext = `rsk_${prefix}_${randomToken(32)}`;
-    const apiKey = await this.apiKeys.save(
-      this.apiKeys.create({
-        companyId,
-        createdByUserId,
-        name,
-        prefix,
-        keyHash: sha256Hex(plaintext),
-        lastUsedAt: null,
-        revokedAt: null,
-      }),
-    );
+    const apiKey = await this.apiKeys.create({
+      companyId,
+      createdByUserId,
+      name,
+      prefix,
+      keyHash: sha256Hex(plaintext),
+      lastUsedAt: null,
+      revokedAt: null,
+    });
     return { apiKey, plaintext };
   }
 
   list(companyId: string): Promise<ApiKey[]> {
-    return this.apiKeys.find({
-      where: { companyId },
-      order: { createdAt: 'DESC' },
-    });
+    return this.apiKeys.listByCompany(companyId);
   }
 
   async revoke(companyId: string, id: string): Promise<ApiKey> {
     const apiKey = assertOwnedByCompany(
-      await this.apiKeys.findOneBy({ id }),
+      await this.apiKeys.findById(id),
       companyId,
       'API key',
     );
     if (!apiKey.revokedAt) {
       apiKey.revokedAt = new Date();
-      await this.apiKeys.save(apiKey);
+      await this.apiKeys.update(apiKey.id, { revokedAt: apiKey.revokedAt });
     }
     return apiKey;
   }
@@ -65,10 +56,7 @@ export class ApiKeysService {
     if (!match) {
       return null;
     }
-    const apiKey = await this.apiKeys.findOne({
-      where: { prefix: match[1] },
-      relations: { company: true },
-    });
+    const apiKey = await this.apiKeys.findByPrefix(match[1]);
     if (
       !apiKey ||
       apiKey.revokedAt ||

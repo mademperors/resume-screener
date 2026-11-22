@@ -1,5 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { SessionsModule } from '../auth/sessions.module.js';
+import { CandidatesDataModule } from '../candidates/candidates-data.module.js';
+import { JobsDataModule } from '../jobs/jobs-data.module.js';
+import { ResumesDataModule } from '../resumes/resumes-data.module.js';
+import { EvaluationRecorder } from './evaluation-recorder.js';
 import { processingConfig } from '../config/processing.config.js';
 import { queueConfig } from '../config/queue.config.js';
 import { retentionConfig } from '../config/retention.config.js';
@@ -37,9 +42,14 @@ import {
     ConfigModule.forFeature(retentionConfig),
     ConfigModule.forFeature(screeningConfig),
     ConfigModule.forFeature(sessionConfig),
+    JobsDataModule,
+    ResumesDataModule,
+    CandidatesDataModule,
+    SessionsModule,
     ResumeRemovalModule,
   ],
   providers: [
+    EvaluationRecorder,
     ResumeProcessor,
     ResumeSweeper,
     ResumeWorker,

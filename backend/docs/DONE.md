@@ -6,9 +6,8 @@ non-functional (ПР-3, "NFR") and system requirements (ПР-4, "SR").
 
 **Summary:** the backend is complete for the MVP. The Gemini model is connected
 (`SCREENING_MODEL=gemini`, not yet calibrated on real resumes); a deterministic
-mock is the default. It runs with one command in Docker,
-and 133 unit tests plus 71 end-to-end tests pass against real Postgres,
-Valkey and SeaweedFS.
+mock is the default. It runs with one command in Docker, with unit tests
+and integration tests against real Postgres, Valkey and SeaweedFS.
 
 ## Stack
 
@@ -20,6 +19,26 @@ Valkey and SeaweedFS.
 | File storage | SeaweedFS through its S3 API, volumes encrypted |
 | HTTPS | Caddy (local certificates for `*.localhost`, Let's Encrypt for real domains) |
 | Tests | Vitest: unit tests in `test/unit/`, integration tests against real Postgres, Valkey and SeaweedFS in `test/integration/` |
+
+## Code structure
+
+- One folder per feature (`jobs`, `resumes`, `candidates`, `processing`,
+  `export`, `auth`, `api-keys`, `companies`, `users`, `admin`), each with
+  controller → service → repository. Only repositories use TypeORM.
+- A feature's repositories are exported by its `*-data.module.ts`, which
+  depends only on the database. Features read each other's data through
+  those (or through the owning service), never through another module's
+  entities, so there are no import cycles and no hidden cross-module SQL.
+  Changes across modules (re-scoring flags on a job edit, saving an
+  evaluation) run in one transaction passed to each repository.
+- Replaceable edges are abstract classes used as DI tokens: `FileStorage`,
+  `ProcessingQueue`, the pipeline stages (`TextExtractor`,
+  `ResumePreprocessor`, `ScreeningModel`, `ScoringEngine`),
+  `IdentityVerifier` (Google sign-in) and `RateLimiter` (Valkey counters).
+- Resume upload (`ResumeUploadService`), the rest of the resume lifecycle
+  (`ResumesService`) and queueing with a sweep fallback (`ResumeDispatcher`)
+  are separate; `ResumeProcessor` runs the pipeline and `EvaluationRecorder`
+  saves its result.
 
 ## Authentication and companies (FR 2.1, NFR 4.1–4.5, SR 1.1.3)
 

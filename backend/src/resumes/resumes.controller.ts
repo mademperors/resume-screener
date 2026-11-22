@@ -35,6 +35,7 @@ import {
   UploadResultDto,
   UploadResumesQueryDto,
 } from './dto/resume.dto.js';
+import { ResumeUploadService } from './resume-upload.service.js';
 import { ResumesService } from './resumes.service.js';
 import {
   MAX_FILES_PER_UPLOAD,
@@ -48,7 +49,10 @@ import {
 @ApiStandardErrors()
 @Controller()
 export class ResumesController {
-  constructor(private readonly resumes: ResumesService) {}
+  constructor(
+    private readonly resumes: ResumesService,
+    private readonly uploads: ResumeUploadService,
+  ) {}
 
   @Post('jobs/:jobId/resumes')
   @HttpCode(HttpStatus.ACCEPTED)
@@ -89,7 +93,7 @@ export class ResumesController {
     @Query() query: UploadResumesQueryDto,
     @UploadedFiles() files: Express.Multer.File[] | undefined,
   ): Promise<UploadResultDto> {
-    return this.resumes.upload(
+    return this.uploads.upload(
       principal,
       jobId,
       files ?? [],

@@ -1,16 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { plansConfig } from '../config/plans.config.js';
+import { CompaniesRepository } from './companies.repository.js';
 import { CompanyPlansService } from './company-plans.service.js';
-import { Company } from './company.entity.js';
 
+/** Companies and their plans. Depends on nothing but the database. */
 @Module({
-  imports: [
-    ConfigModule.forFeature(plansConfig),
-    TypeOrmModule.forFeature([Company]),
-  ],
-  providers: [CompanyPlansService],
-  exports: [CompanyPlansService],
+  imports: [ConfigModule.forFeature(plansConfig)],
+  providers: [CompaniesRepository, CompanyPlansService],
+  exports: [CompaniesRepository, CompanyPlansService],
 })
 export class CompaniesModule {}

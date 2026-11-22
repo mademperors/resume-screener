@@ -1,11 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-import { CandidateDecision } from '../candidates/candidate.entity.js';
-import {
-  CandidatesService,
-  toSummary,
-} from '../candidates/candidates.service.js';
+import { CandidateReportsRepository } from '../candidates/candidate-reports.repository.js';
+import { CandidatesRepository } from '../candidates/candidates.repository.js';
+import { toSummary } from '../candidates/candidates.service.js';
 import { CandidateFiltersDto } from '../candidates/dto/candidate.dto.js';
 import { JobDto } from '../jobs/dto/job.dto.js';
 import type { Job } from '../jobs/job.entity.js';
@@ -38,13 +34,14 @@ const CSV_HEADER = [
   'Below minimum score',
 ];
 
+/** CSV export of the candidate list and the printable job report. Read-only. */
 @Injectable()
 export class ExportService {
   constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
     private readonly jobs: JobsService,
-    private readonly candidates: CandidatesService,
     private readonly resumes: ResumesService,
+    private readonly candidates: CandidatesRepository,
+    private readonly reports: CandidateReportsRepository,
   ) {}
 
   /** Checks access before anything is streamed, so errors are proper responses. */
@@ -57,11 +54,12 @@ export class ExportService {
     yield CSV_BOM + csvLine(CSV_HEADER);
     let rank = 0;
     for (let offset = 0; offset < MAX_EXPORT_ROWS; offset += BATCH_SIZE) {
-      const batch = await this.candidates
-        .filteredQuery(job.id, filters)
-        .skip(offset)
-        .take(Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - offset))
-        .getMany();
+      const batch = await this.candidates.findSlice(
+        job.id,
+        filters,
+        offset,
+        Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - offset),
+      );
       for (const candidate of batch) {
         rank += 1;
         yield csvLine([
@@ -90,11 +88,11 @@ export class ExportService {
       this.resumes.progress(companyId, jobId),
       this.stats(job.id),
       this.coverage(job),
-      this.candidates
-        .filteredQuery(job.id, new CandidateFiltersDto())
-        .andWhere('candidate.belowThreshold = false')
-        .take(TOP_CANDIDATES)
-        .getMany(),
+      this.candidates.findTop(
+        job.id,
+        new CandidateFiltersDto(),
+        TOP_CANDIDATES,
+      ),
     ]);
     return {
       job: JobDto.from(job, configVersion),
@@ -107,80 +105,42 @@ export class ExportService {
   }
 
   private async stats(jobId: string): Promise<CandidateStatsDto> {
-    const bucketColumns = BUCKETS.slice(0, -1).map((from, index) => {
-      const to = BUCKETS[index + 1];
-      const upper = to === 100 ? '<= 100' : `< ${to}`;
-      return `COUNT(*) FILTER (WHERE "matchScore" >= ${from} AND "matchScore" ${upper})::int AS "bucket_${from}"`;
-    });
-    const [row] = await this.dataSource.query<
-      Record<string, number | string | null>[]
-    >(
-      `SELECT
-         COUNT(*)::int AS total,
-         COUNT(*) FILTER (WHERE NOT "belowThreshold")::int AS above,
-         COUNT(*) FILTER (WHERE "belowThreshold")::int AS below,
-         COUNT(*) FILTER (WHERE cardinality(flags) > 0)::int AS warnings,
-         ROUND(AVG("matchScore"), 2)::float AS average,
-         COUNT(*) FILTER (WHERE decision = $2)::int AS pending,
-         COUNT(*) FILTER (WHERE decision = $3)::int AS approved,
-         COUNT(*) FILTER (WHERE decision = $4)::int AS rejected,
-         ${bucketColumns.join(',\n')}
-       FROM candidates WHERE "jobId" = $1`,
-      [
-        jobId,
-        CandidateDecision.Pending,
-        CandidateDecision.Approved,
-        CandidateDecision.Rejected,
-      ],
-    );
+    const counts = await this.reports.countCandidates(jobId, BUCKETS);
     return {
-      total: Number(row.total),
-      aboveThreshold: Number(row.above),
-      belowThreshold: Number(row.below),
-      withWarnings: Number(row.warnings),
-      averageScore: row.average === null ? null : Number(row.average),
-      byDecision: {
-        Pending: Number(row.pending),
-        Approved: Number(row.approved),
-        Rejected: Number(row.rejected),
-      },
+      total: counts.total,
+      aboveThreshold: counts.aboveThreshold,
+      belowThreshold: counts.belowThreshold,
+      withWarnings: counts.withWarnings,
+      averageScore: counts.averageScore,
+      byDecision: counts.byDecision,
       scoreDistribution: BUCKETS.slice(0, -1).map((from, index) => ({
         from,
         to: BUCKETS[index + 1],
-        count: Number(row[`bucket_${from}`]),
+        count: counts.buckets[index],
       })),
     };
   }
 
-  /** For each current requirement, how many candidates' latest evaluation meets it. */
+  /** For each current requirement, the share of evaluated candidates who meet it. */
   private async coverage(job: Job): Promise<RequirementCoverageDto[]> {
-    const config = await this.jobs.getCurrentConfig(job);
-    const rows = await this.dataSource.query<
-      { requirementId: string; met: number; evaluated: number }[]
-    >(
-      `SELECT item->>'requirementId' AS "requirementId",
-              COUNT(*) FILTER (WHERE (item->>'met')::boolean)::int AS met,
-              COUNT(*)::int AS evaluated
-       FROM candidates c
-       JOIN evaluations e ON e.id = c."latestEvaluationId"
-       CROSS JOIN jsonb_array_elements(e.contributions) AS item
-       WHERE c."jobId" = $1
-       GROUP BY 1`,
-      [job.id],
+    const [config, coverage] = await Promise.all([
+      this.jobs.getCurrentConfig(job),
+      this.reports.requirementCoverage(job.id),
+    ]);
+    const metById = new Map(
+      coverage.met.map((row) => [row.requirementId, row.met]),
     );
-    const [{ total }] = await this.dataSource.query<{ total: number }[]>(
-      `SELECT COUNT(*)::int AS total FROM candidates WHERE "jobId" = $1 AND "latestEvaluationId" IS NOT NULL`,
-      [job.id],
-    );
-    const byId = new Map(rows.map((row) => [row.requirementId, row]));
     return config.requirements.map((requirement) => {
-      const met = byId.get(requirement.id)?.met ?? 0;
+      const met = metById.get(requirement.id) ?? 0;
       return {
         requirementId: requirement.id,
         label: requirement.label,
         mandatory: requirement.mandatory,
         met,
-        share: total > 0 ? Math.round((met / total) * 100) / 100 : 0,
+        share:
+          coverage.evaluated > 0
+            ? Math.round((met / coverage.evaluated) * 100) / 100
+            : 0,
       };
     });
   }

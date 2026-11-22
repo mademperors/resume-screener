@@ -1,13 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { Brackets, DataSource } from 'typeorm';
 import {
   processingConfig,
   type ProcessingConfig,
 } from '../config/processing.config.js';
-import { Job } from '../jobs/job.entity.js';
 import { ProcessingQueue, type ResumeTask } from '../queue/processing-queue.js';
-import { Resume, ResumeStatus } from '../resumes/resume.entity.js';
+import { ResumeStatus } from '../resumes/resume.entity.js';
+import { ResumesRepository } from '../resumes/resumes.repository.js';
 
 export interface SweepResult {
   /** Queued or Processing for too long; queued again. */
@@ -34,7 +32,7 @@ export class ResumeSweeper {
   private readonly maxAutoRetries: number;
 
   constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly resumes: ResumesRepository,
     private readonly queue: ProcessingQueue,
     @Inject(processingConfig.KEY) config: ProcessingConfig,
   ) {
@@ -56,27 +54,14 @@ export class ResumeSweeper {
   }
 
   private async requeueStale(now: Date): Promise<ResumeTask[]> {
-    const before = new Date(now.getTime() - this.staleMs);
-    const rows = await this.candidates()
-      .andWhere(
-        new Brackets((where) =>
-          where
-            .where('resume.status = :queued AND resume.queuedAt < :before')
-            .orWhere(
-              'resume.status = :processing AND resume.processingStartedAt < :before',
-            ),
-        ),
-      )
-      .setParameters({
-        queued: ResumeStatus.Queued,
-        processing: ResumeStatus.Processing,
-        before,
-      })
-      .getRawMany<ResumeTask>();
+    const tasks = await this.resumes.findStuck(
+      new Date(now.getTime() - this.staleMs),
+      BATCH_SIZE,
+    );
     return this.markQueued(
-      rows,
+      tasks,
       [ResumeStatus.Queued, ResumeStatus.Processing],
-      {},
+      false,
     );
   }
 
@@ -84,55 +69,26 @@ export class ResumeSweeper {
     if (this.retryFailedAfterMs === 0 || this.maxAutoRetries === 0) {
       return [];
     }
-    const rows = await this.candidates()
-      .andWhere('resume.status = :failed', {
-        failed: ResumeStatus.ProcessingFailed,
-      })
-      .andWhere('resume.lastErrorRetryable = true')
-      .andWhere('resume.processedAt < :before', {
-        before: new Date(now.getTime() - this.retryFailedAfterMs),
-      })
-      .andWhere('resume.autoRetryCount < :max', { max: this.maxAutoRetries })
-      .getRawMany<ResumeTask>();
-    return this.markQueued(rows, [ResumeStatus.ProcessingFailed], {
-      autoRetryCount: () => '"autoRetryCount" + 1',
-    });
-  }
-
-  /** Resumes of jobs that still exist, with the job's current config. */
-  private candidates() {
-    return this.dataSource
-      .getRepository(Resume)
-      .createQueryBuilder('resume')
-      .innerJoin(Job, 'job', 'job.id = resume.jobId AND job.deletedAt IS NULL')
-      .select('resume.id', 'resumeId')
-      .addSelect('job.currentConfigVersionId', 'configVersionId')
-      .where('job.currentConfigVersionId IS NOT NULL')
-      .orderBy('resume.queuedAt', 'ASC')
-      .limit(BATCH_SIZE);
+    const tasks = await this.resumes.findRetryableFailures(
+      new Date(now.getTime() - this.retryFailedAfterMs),
+      this.maxAutoRetries,
+      BATCH_SIZE,
+    );
+    return this.markQueued(tasks, [ResumeStatus.ProcessingFailed], true);
   }
 
   /** Re-checks the status so rows that moved on meanwhile are left alone. */
   private async markQueued(
-    rows: ResumeTask[],
+    tasks: ResumeTask[],
     fromStatuses: ResumeStatus[],
-    extra: Record<string, () => string>,
+    countAutoRetry: boolean,
   ): Promise<ResumeTask[]> {
-    if (rows.length === 0) {
-      return [];
-    }
-    const result = await this.dataSource
-      .createQueryBuilder()
-      .update(Resume)
-      .set({ status: ResumeStatus.Queued, queuedAt: () => 'now()', ...extra })
-      .where('id IN (:...ids)', { ids: rows.map((row) => row.resumeId) })
-      .andWhere('status IN (:...fromStatuses)', { fromStatuses })
-      .returning(['id'])
-      .execute();
-    const updated = new Set(
-      (result.raw as { id: string }[]).map((row) => row.id),
+    const updated = await this.resumes.markQueued(
+      tasks.map((task) => task.resumeId),
+      fromStatuses,
+      { countAutoRetry },
     );
-    return rows.filter((row) => updated.has(row.resumeId));
+    return tasks.filter((task) => updated.has(task.resumeId));
   }
 
   private async enqueue(tasks: ResumeTask[]): Promise<void> {
