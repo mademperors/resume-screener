@@ -49,3 +49,37 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Native progress bars (upload processing). */
+progress {
+  appearance: none;
+  border: 0;
+  background-color: var(--secondary);
+}
+
+progress::-webkit-progress-bar {
+  background-color: var(--secondary);
+  border-radius: 9999px;
+}
+
+progress::-webkit-progress-value {
+  background-color: var(--primary);
+  border-radius: 9999px;
+  transition: inline-size 300ms ease;
+}
+
+progress::-moz-progress-bar {
+  background-color: var(--primary);
+  border-radius: 9999px;
+}
+
+/* Keep printouts readable and hide interactive chrome. */
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  a[href]::after {
+    content: '';
+  }
+}

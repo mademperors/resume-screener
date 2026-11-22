@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { Job } from '@/types/job'
+import { useCallback, useEffect, useState } from 'react'
+import type { Job } from '@/types/api'
 import { getJob } from './api'
 
 type JobState =
@@ -7,6 +7,9 @@ type JobState =
 
 export function useJob(jobId: string | undefined) {
   const [state, setState] = useState<JobState>({ status: 'loading' })
+  const [reloadKey, setReloadKey] = useState(0)
+
+  const reload = useCallback(() => setReloadKey((key) => key + 1), [])
 
   useEffect(() => {
     if (!jobId) {
@@ -33,7 +36,7 @@ export function useJob(jobId: string | undefined) {
     return () => {
       active = false
     }
-  }, [jobId])
+  }, [jobId, reloadKey])
 
-  return state
+  return { state, reload }
 }

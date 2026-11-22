@@ -1,25 +1,23 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { RouterProvider } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
-import { createTestRouter } from '@/app/router'
+import { renderApp } from '@/test/render'
 
-function renderApp(path: string) {
-  const router = createTestRouter([path])
-  render(<RouterProvider router={router} />)
-  return router
+async function fillJobBasics(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByRole('textbox', { name: /job title/i }), 'Platform Engineer')
+  await user.type(
+    screen.getByRole('textbox', { name: /description/i }),
+    'Own the platform and developer experience.',
+  )
 }
 
 describe('job workflows', () => {
-  it('creates a job and opens its detail page', async () => {
+  it('creates a job and opens its workspace', async () => {
     const user = userEvent.setup()
     const router = renderApp('/jobs/new')
 
-    await user.type(screen.getByRole('textbox', { name: /job title/i }), 'Platform Engineer')
-    await user.type(
-      screen.getByRole('textbox', { name: /description/i }),
-      'Own the platform and developer experience.',
-    )
+    await screen.findByRole('heading', { name: 'Create job' })
+    await fillJobBasics(user)
     await user.type(screen.getByRole('textbox', { name: /required skills/i }), 'Kubernetes{Enter}')
 
     const experience = screen.getByRole('spinbutton', { name: /minimum experience/i })
@@ -31,11 +29,13 @@ describe('job workflows', () => {
     expect(await screen.findByText('Job saved')).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Platform Engineer' })).toBeInTheDocument()
     expect(router.state.location.pathname).toMatch(/^\/jobs\/job-/)
-    expect(screen.getByText('4 years')).toBeInTheDocument()
-    expect(screen.getByText('Kubernetes')).toBeInTheDocument()
+    expect(screen.getByText('Open')).toBeInTheDocument()
+    expect(screen.getByText(/Scoring config v1/)).toBeInTheDocument()
+    expect(await screen.findByText('No candidates found')).toBeInTheDocument()
   })
 
-  it('lists the seeded jobs', async () => {
+  it('lists the seeded jobs and filters by status', async () => {
+    const user = userEvent.setup()
     renderApp('/')
 
     expect(
@@ -43,9 +43,20 @@ describe('job workflows', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Backend Engineer (Node.js)' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'QA Automation Engineer' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Closed' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'QA Automation Engineer' }),
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Senior Frontend Engineer' }),
+      ).not.toBeInTheDocument(),
+    )
   })
 
-  it('edits a job and re-evaluates candidates when requirements change', async () => {
+  it('edits requirements and offers to re-score candidates', async () => {
     const user = userEvent.setup()
     renderApp('/jobs/job-1/edit')
 
@@ -55,16 +66,14 @@ describe('job workflows', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    const dialog = await screen.findByRole('dialog')
-    await user.click(within(dialog).getByRole('button', { name: 'Save & re-evaluate' }))
+    expect(await screen.findByText('Re-score candidates?')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Re-score candidates' }))
 
-    expect(
-      await screen.findByText('Job saved — uploaded candidates will be re-evaluated'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/Re-scoring 4 candidates/)).toBeInTheDocument()
     expect(
       await screen.findByRole('heading', { name: 'Senior Frontend Engineer' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('6 years')).toBeInTheDocument()
+    expect(screen.getByText(/Scoring config v4/)).toBeInTheDocument()
   })
 
   it('deletes a job after confirmation', async () => {
@@ -74,15 +83,23 @@ describe('job workflows', () => {
     await screen.findByRole('heading', { name: 'QA Automation Engineer' })
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
-    const dialog = await screen.findByRole('dialog')
-    await user.click(within(dialog).getByRole('button', { name: 'Delete job' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete job' }))
 
     expect(await screen.findByText('Job deleted')).toBeInTheDocument()
-    expect(
-      await screen.findByRole('heading', { name: 'Senior Frontend Engineer' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Jobs' })).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: 'QA Automation Engineer' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('closes an open job', async () => {
+    const user = userEvent.setup()
+    renderApp('/jobs/job-1')
+
+    await screen.findByRole('heading', { name: 'Senior Frontend Engineer' })
+    await user.click(screen.getByRole('button', { name: 'Close job' }))
+
+    expect(await screen.findByText('Job closed')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Reopen job' })).toBeInTheDocument()
   })
 })
