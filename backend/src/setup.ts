@@ -13,10 +13,10 @@ import {
   validationExceptionFactory,
 } from './common/http-exception.filter.js';
 
-/** Shared by main.ts and e2e tests so both run the same HTTP setup. */
+/** Shared by main.ts and integration tests so both run the same HTTP setup. */
 export function configureApp(
   app: INestApplication,
-  corsOrigins?: string,
+  corsOrigins: readonly string[] = [],
 ): void {
   configureRouting(app);
   app.useGlobalPipes(
@@ -28,10 +28,8 @@ export function configureApp(
     }),
   );
   app.useGlobalFilters(new AllExceptionsFilter());
-  if (corsOrigins) {
-    app.enableCors({
-      origin: corsOrigins.split(',').map((origin) => origin.trim()),
-    });
+  if (corsOrigins.length > 0) {
+    app.enableCors({ origin: [...corsOrigins] });
   }
   SwaggerModule.setup('api/docs', app, buildOpenApiDocument(app));
 }

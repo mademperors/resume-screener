@@ -1,8 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import type { Queue } from 'bullmq';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { queueConfig, type QueueConfig } from '../config/queue.config.js';
 import {
   ProcessingQueue,
   RESUME_QUEUE,
@@ -17,11 +16,11 @@ export class BullmqProcessingQueue extends ProcessingQueue {
 
   constructor(
     @InjectQueue(RESUME_QUEUE) private readonly queue: Queue<ResumeTask>,
-    config: ConfigService<EnvironmentVariables, true>,
+    @Inject(queueConfig.KEY) config: QueueConfig,
   ) {
     super();
-    this.attempts = config.get('PROCESSING_MAX_ATTEMPTS', { infer: true });
-    this.backoffMs = config.get('PROCESSING_BACKOFF_MS', { infer: true });
+    this.attempts = config.maxAttempts;
+    this.backoffMs = config.backoffMs;
   }
 
   async enqueue(tasks: readonly ResumeTask[]): Promise<void> {

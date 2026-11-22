@@ -19,7 +19,7 @@ Read these before exploring the code; they're shorter and kept current.
 | What's left: model steps, what the frontend must handle, deployment | `backend/docs/TODO.md` |
 | Running, testing, Docker, migrations, plans | `backend/README.md` |
 | How to test by hand, step by step with expected results | `backend/docs/manual-testing/README.md` (test files in `files/`) |
-| All settings | `backend/.env.example` |
+| All settings: defaults / secrets | `backend/.env.defaults` / `backend/.env.example` |
 
 By role:
 
@@ -44,9 +44,13 @@ By role:
 - **Database changes:** never use `synchronize`. Change the entity, run
   `npm run migration:generate -- src/database/migrations/<Name>`, review the
   SQL, and add the class to `src/database/migrations/index.ts`.
-- **New settings:** add them to `src/config/env.validation.ts`,
-  `.env.example`, and, if containers need them, `docker-compose.yml`.
-  Secrets come only from the environment.
+- **New settings:** add the variable to the zod schema of the namespace it
+  belongs to in `src/config/*.config.ts` (or a new `defineConfig` file; use
+  the `envVar` helpers for numbers, booleans, URLs, lists), with no default in
+  code. Put its default in `.env.defaults`; a secret goes in `.env.example`
+  with an empty or development value instead. A new namespace goes in
+  `ALL_CONFIGS` in `src/config/config.module.ts` (loaded globally). Touch
+  `docker-compose.yml` only for values that differ inside the Docker network.
 - **Tenant isolation:** load company-owned records through
   `assertOwnedByCompany` (or a service's `getOwned`), so another company's
   record answers 403.

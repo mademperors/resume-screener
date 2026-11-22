@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { plansConfig, type PlansConfig } from '../config/plans.config.js';
 import { Company, CompanyPlan } from './company.entity.js';
 
 export interface CompanyPlanInfo {
@@ -19,15 +18,11 @@ export class CompanyPlansService {
 
   constructor(
     @InjectRepository(Company) private readonly companies: Repository<Company>,
-    config: ConfigService<EnvironmentVariables, true>,
+    @Inject(plansConfig.KEY) config: PlansConfig,
   ) {
     this.planLimits = {
-      [CompanyPlan.Standard]: config.get('PLAN_STANDARD_RATE_LIMIT', {
-        infer: true,
-      }),
-      [CompanyPlan.Extended]: config.get('PLAN_EXTENDED_RATE_LIMIT', {
-        infer: true,
-      }),
+      [CompanyPlan.Standard]: config.standardRateLimit,
+      [CompanyPlan.Extended]: config.extendedRateLimit,
     };
   }
 

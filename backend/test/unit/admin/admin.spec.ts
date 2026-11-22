@@ -3,17 +3,12 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
 import type { Repository } from 'typeorm';
+import { AdminTokenGuard } from '@src/admin/admin-token.guard.js';
 import { CompanyPlansService } from '@src/companies/company-plans.service.js';
 import { CompanyPlan, type Company } from '@src/companies/company.entity.js';
-import { AdminTokenGuard } from '@src/admin/admin-token.guard.js';
 
 const TOKEN = 'a'.repeat(40);
-
-function configWith(values: Record<string, unknown>) {
-  return { get: (key: string) => values[key] } as unknown as ConfigService;
-}
 
 function contextWithToken(token?: string) {
   return {
@@ -28,16 +23,14 @@ function contextWithToken(token?: string) {
 
 describe('AdminTokenGuard', () => {
   it('is off when no token is configured', () => {
-    const guard = new AdminTokenGuard(configWith({}) as never);
+    const guard = new AdminTokenGuard({ token: null });
     expect(() => guard.canActivate(contextWithToken(TOKEN))).toThrow(
       ForbiddenException,
     );
   });
 
   it('rejects a missing or wrong token', () => {
-    const guard = new AdminTokenGuard(
-      configWith({ ADMIN_API_TOKEN: TOKEN }) as never,
-    );
+    const guard = new AdminTokenGuard({ token: TOKEN });
     expect(() => guard.canActivate(contextWithToken())).toThrow(
       UnauthorizedException,
     );
@@ -47,21 +40,18 @@ describe('AdminTokenGuard', () => {
   });
 
   it('accepts the configured token', () => {
-    const guard = new AdminTokenGuard(
-      configWith({ ADMIN_API_TOKEN: TOKEN }) as never,
-    );
+    const guard = new AdminTokenGuard({ token: TOKEN });
     expect(guard.canActivate(contextWithToken(TOKEN))).toBe(true);
   });
 });
 
 describe('CompanyPlansService', () => {
-  const plans = new CompanyPlansService(
-    {} as Repository<Company>,
-    configWith({
-      PLAN_STANDARD_RATE_LIMIT: 200,
-      PLAN_EXTENDED_RATE_LIMIT: 1000,
-    }) as never,
-  );
+  // Only the pure plan logic; finding and changing companies is covered by
+  // test/integration/plans.spec.ts.
+  const plans = new CompanyPlansService({} as Repository<Company>, {
+    standardRateLimit: 200,
+    extendedRateLimit: 1000,
+  });
 
   it("uses the plan's limit unless the company has a custom one", () => {
     expect(

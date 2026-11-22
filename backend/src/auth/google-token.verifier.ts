@@ -1,7 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { authConfig, type AuthConfig } from '../config/auth.config.js';
 
 export interface GoogleIdentity {
   subject: string;
@@ -17,8 +16,8 @@ export class GoogleTokenVerifier {
   private readonly client = new OAuth2Client();
   private readonly clientId: string;
 
-  constructor(config: ConfigService<EnvironmentVariables, true>) {
-    this.clientId = config.get('GOOGLE_CLIENT_ID', { infer: true });
+  constructor(@Inject(authConfig.KEY) config: AuthConfig) {
+    this.clientId = config.googleClientId;
   }
 
   /** Verifies a Google ID token issued to this app's OAuth client. */

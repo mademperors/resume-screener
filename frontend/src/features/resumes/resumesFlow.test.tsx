@@ -56,7 +56,8 @@ describe('resume workflows', () => {
 
     expect(await screen.findByText('alice-johnson.pdf')).toBeInTheDocument()
     expect(await screen.findByText('Processed 4 of 4')).toBeInTheDocument()
-    expect(screen.getByText('bob-smith.pdf')).toBeInTheDocument()
+    // The list is fetched again when processing is done; wait for it.
+    expect(await screen.findByText('bob-smith.pdf')).toBeInTheDocument()
   })
 
   it('rejects unsupported and oversized files before uploading', async () => {

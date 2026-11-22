@@ -1,12 +1,11 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomToken, sha256Hex } from '../common/crypto.js';
 import { CompanyPlansService } from '../companies/company-plans.service.js';
 import { Company } from '../companies/company.entity.js';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { sessionConfig, type SessionConfig } from '../config/session.config.js';
 import { User } from '../users/user.entity.js';
 import type { AuthTokensDto, MeDto } from './dto/auth.dto.js';
 import {
@@ -38,15 +37,12 @@ export class AuthService {
     @InjectRepository(Session) private readonly sessions: Repository<Session>,
     private readonly google: GoogleTokenVerifier,
     private readonly jwt: JwtService,
-    config: ConfigService<EnvironmentVariables, true>,
+    @Inject(sessionConfig.KEY) config: SessionConfig,
     private readonly plans: CompanyPlansService,
   ) {
-    this.accessTokenTtlSeconds =
-      config.get('ACCESS_TOKEN_TTL_MINUTES', { infer: true }) * 60;
-    this.idleTimeoutMs =
-      config.get('SESSION_IDLE_TIMEOUT_MINUTES', { infer: true }) * 60_000;
-    this.maxAgeMs =
-      config.get('SESSION_MAX_AGE_HOURS', { infer: true }) * 3_600_000;
+    this.accessTokenTtlSeconds = config.accessTokenTtlSeconds;
+    this.idleTimeoutMs = config.idleTimeoutMs;
+    this.maxAgeMs = config.maxAgeMs;
   }
 
   async signInWithGoogle(idToken: string): Promise<AuthTokensDto> {

@@ -153,8 +153,11 @@ confidences within 0..1. Same input gives the same result (NFR 6.1).
 - Daily compressed database dump in `backend/backups`, kept 7 days.
 - `GET /health` (alive) and `GET /health/ready` (database, queue, storage),
   used by the container health checks.
-- All secrets and settings come from environment variables; every one is
-  documented in `.env.example`.
+- All secrets and settings come from environment variables. Defaults are in
+  the committed `.env.defaults`, secrets in an uncommitted `.env`
+  (`.env.example` lists them). Settings are validated at startup per area
+  (`src/config/*.config.ts`), including rules between them.
+- Workers scale with `docker compose up -d --scale worker=N`.
 - Errors always have the same shape with a readable English message, plus
   per-field details for invalid input (NFR 7.1).
 

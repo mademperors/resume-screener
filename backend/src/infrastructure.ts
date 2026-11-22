@@ -1,9 +1,9 @@
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppConfigModule } from './config/config.module.js';
 import {
-  validateEnv,
-  type EnvironmentVariables,
-} from './config/env.validation.js';
+  databaseConfig,
+  type DatabaseConfig,
+} from './config/database.config.js';
 import { databaseOptions } from './database/database.options.js';
 import { QueueModule } from './queue/queue.module.js';
 import { StorageModule } from './storage/storage.module.js';
@@ -14,15 +14,11 @@ import { StorageModule } from './storage/storage.module.js';
  */
 export function infrastructureImports(role: 'api' | 'worker') {
   return [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    AppConfigModule,
     TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) =>
-        databaseOptions(
-          config.get('DATABASE_URL', { infer: true }),
-          role === 'api' &&
-            config.get('DB_RUN_MIGRATIONS', { infer: true }) === 'true',
-        ),
+      inject: [databaseConfig.KEY],
+      useFactory: (config: DatabaseConfig) =>
+        databaseOptions(config.url, role === 'api' && config.runMigrations),
     }),
     StorageModule,
     QueueModule,

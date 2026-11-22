@@ -9,6 +9,11 @@ set -eu
 : "${BACKUP_INTERVAL_SECONDS:=86400}"
 : "${BACKUP_KEEP_DAYS:=7}"
 
+# The same POSTGRES_* settings as the app and the database (.env.defaults, .env).
+export PGHOST="${POSTGRES_HOST}" PGPORT="${POSTGRES_PORT:-5432}"
+export PGUSER="${POSTGRES_USER}" PGPASSWORD="${POSTGRES_PASSWORD}"
+export PGDATABASE="${POSTGRES_DB}"
+
 while true; do
   file="/backups/${PGDATABASE}-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
   if pg_dump --no-owner --clean --if-exists | gzip > "${file}.partial"; then

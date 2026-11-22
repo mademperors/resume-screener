@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiKeysModule } from '../api-keys/api-keys.module.js';
 import { CompaniesModule } from '../companies/companies.module.js';
 import { Company } from '../companies/company.entity.js';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { authConfig, type AuthConfig } from '../config/auth.config.js';
 import { User } from '../users/user.entity.js';
 import { AuthController } from './auth.controller.js';
 import { AuthGuard } from './auth.guard.js';
@@ -19,10 +18,8 @@ import { Session } from './session.entity.js';
   imports: [
     TypeOrmModule.forFeature([User, Company, Session]),
     JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) => ({
-        secret: config.get('JWT_SECRET', { infer: true }),
-      }),
+      inject: [authConfig.KEY],
+      useFactory: (config: AuthConfig) => ({ secret: config.jwtSecret }),
     }),
     ApiKeysModule,
     CompaniesModule,

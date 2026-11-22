@@ -1,19 +1,17 @@
-import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import type { EnvironmentVariables } from './config/env.validation.js';
+import { appConfig, type AppConfig } from './config/app.config.js';
 import { ResumeWorker } from './processing/resume-worker.service.js';
 import { configureApp } from './setup.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const config =
-    app.get<ConfigService<EnvironmentVariables, true>>(ConfigService);
-  configureApp(app, config.get('CORS_ORIGINS', { infer: true }));
+  const config = app.get<AppConfig>(appConfig.KEY);
+  configureApp(app, config.corsOrigins);
   app.enableShutdownHooks();
-  if (config.get('RUN_WORKER_IN_API', { infer: true }) === 'true') {
+  if (config.runWorkerInApi) {
     await app.get(ResumeWorker).start();
   }
-  await app.listen(config.get('PORT', { infer: true }));
+  await app.listen(config.port);
 }
 await bootstrap();
