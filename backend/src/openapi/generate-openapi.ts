@@ -7,14 +7,14 @@ export const OPENAPI_FILE = fileURLToPath(
   new URL('../../docs/openapi.json', import.meta.url),
 );
 
-// Config validation needs these to exist; the spec doesn't depend on them.
+// Secrets have no defaults (.env.defaults has the rest); the spec doesn't
+// depend on their values.
 const PLACEHOLDER_ENV: Record<string, string> = {
-  DATABASE_URL: 'postgres://unused@localhost/unused',
+  POSTGRES_PASSWORD: 'unused',
   JWT_SECRET: 'openapi-generation-placeholder-secret-0000',
   GOOGLE_CLIENT_ID: 'unused',
   S3_ACCESS_KEY_ID: 'unused',
   S3_SECRET_ACCESS_KEY: 'unused',
-  REDIS_URL: 'redis://localhost:6379',
 };
 
 /**
@@ -31,6 +31,8 @@ export async function generateOpenApiJson(): Promise<string> {
   const app = await NestFactory.create(AppModule, {
     preview: true,
     logger: false,
+    // Throw (e.g. a missing provider) instead of exiting the process silently.
+    abortOnError: false,
   });
   try {
     configureRouting(app);

@@ -1,9 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Brackets, DataSource, IsNull, LessThan, MoreThan } from 'typeorm';
 import { Session } from '../auth/session.entity.js';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import {
+  retentionConfig,
+  type RetentionConfig,
+} from '../config/retention.config.js';
+import { sessionConfig, type SessionConfig } from '../config/session.config.js';
 import { Job, JobStatus } from '../jobs/job.entity.js';
 import { ResumeRemovalService } from '../resumes/resume-removal.service.js';
 
@@ -36,12 +39,11 @@ export class RetentionService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly removal: ResumeRemovalService,
-    config: ConfigService<EnvironmentVariables, true>,
+    @Inject(retentionConfig.KEY) retention: RetentionConfig,
+    @Inject(sessionConfig.KEY) sessions: SessionConfig,
   ) {
-    this.retentionMs =
-      config.get('RETENTION_DAYS', { infer: true }) * 86_400_000;
-    this.sessionIdleMs =
-      config.get('SESSION_IDLE_TIMEOUT_MINUTES', { infer: true }) * 60_000;
+    this.retentionMs = retention.retentionMs;
+    this.sessionIdleMs = sessions.idleTimeoutMs;
   }
 
   async run(now = new Date()): Promise<RetentionResult> {

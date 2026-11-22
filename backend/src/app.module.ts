@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AdminModule } from './admin/admin.module.js';
+import { appConfig } from './config/app.config.js';
 import { ApiKeysModule } from './api-keys/api-keys.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CandidatesModule } from './candidates/candidates.module.js';
@@ -14,6 +16,7 @@ import { ResumesModule } from './resumes/resumes.module.js';
 @Module({
   imports: [
     ...infrastructureImports('api'),
+    ConfigModule.forFeature(appConfig),
     AuthModule,
     ApiKeysModule,
     JobsModule,

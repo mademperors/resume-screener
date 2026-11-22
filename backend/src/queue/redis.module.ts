@@ -5,9 +5,9 @@ import {
   Module,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { Redis } from 'ioredis';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { queueConfig, type QueueConfig } from '../config/queue.config.js';
 
 /** The shared ioredis client. BullMQ needs a client instance under native ESM. */
 export const REDIS_CONNECTION = Symbol('REDIS_CONNECTION');
@@ -34,12 +34,12 @@ class RedisConnectionCloser implements OnApplicationShutdown {
 }
 
 @Module({
+  imports: [ConfigModule.forFeature(queueConfig)],
   providers: [
     {
       provide: REDIS_CONNECTION,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) =>
-        createRedisClient(config.get('REDIS_URL', { infer: true })),
+      inject: [queueConfig.KEY],
+      useFactory: (config: QueueConfig) => createRedisClient(config.redisUrl),
     },
     RedisConnectionCloser,
   ],

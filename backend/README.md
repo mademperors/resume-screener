@@ -21,13 +21,46 @@ The API is at `https://localhost/api/v1`, docs at `https://localhost/api/docs`
 | `resume-screener-seaweedfs` | Resume files (S3 API, encrypted volumes) |
 | `resume-screener-migrate` | Applies migrations, then exits; API and worker wait for it |
 | `resume-screener-api` | REST API |
-| `resume-screener-worker` | Resume processing, sweeps, data retention |
+| `resume-screener-backend-worker-N` | Resume processing, sweeps, data retention |
 | `resume-screener-caddy` | HTTPS for the API (`API_DOMAIN`) and download links (`FILES_DOMAIN`); HTTP redirects to HTTPS |
 | `resume-screener-backup` | Daily `pg_dump` into `./backups`, kept `BACKUP_KEEP_DAYS` days |
 
 Postgres, Valkey and SeaweedFS are published on 127.0.0.1 only, for local
-development. To process faster, raise `WORKER_CONCURRENCY`, or add a second
-worker service (fixed container names rule out `--scale`).
+development. To process faster, raise `WORKER_CONCURRENCY`, or run more
+workers: `docker compose up -d --scale worker=3`.
+
+## Settings
+
+| File | Committed | Holds |
+|---|---|---|
+| `.env.defaults` | yes | Every non-secret setting with its default and a comment |
+| `.env` | no | Secrets (see `.env.example`) and anything you want to override |
+
+Real environment variables win over `.env`, which wins over `.env.defaults`.
+The app, the TypeORM CLI and every compose service read the same files;
+`docker-compose.yml` only sets what differs inside the Docker network (host
+names). The image also contains `.env.defaults`, so a deployment passes just
+the secrets.
+
+In code, settings are grouped by area in `src/config/*.config.ts` (database,
+auth, session, storage, queue, processing, screening, retention, plans,
+admin, app). Each namespace validates its variables at startup, converts
+them once (booleans, lists, milliseconds) and checks rules between them.
+Modules register only the namespaces they use, so the worker never needs
+`JWT_SECRET`:
+
+```ts
+@Module({ imports: [ConfigModule.forFeature(storageConfig)] })
+// ...
+constructor(@Inject(storageConfig.KEY) config: StorageConfig) {}
+```
+
+The database connection is built from `POSTGRES_HOST`, `POSTGRES_PORT`,
+`POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, the same variables
+the Postgres container and the backup job read; set `DATABASE_URL` instead
+for a managed database. SeaweedFS takes its S3 keys from the same
+`S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` as the app
+(`docker/seaweedfs/start.sh`).
 
 Restore a backup:
 `gunzip -c backups/<file>.sql.gz | docker exec -i resume-screener-postgres psql -U screener -d screener`
@@ -143,7 +176,8 @@ code, like in the mock model, which keeps it repeatable.
 1. Create a key in Google AI Studio: https://aistudio.google.com/api-keys
    (sign in with a Google account, "Create API key").
 2. In `.env`: `SCREENING_MODEL=gemini` and `GEMINI_API_KEY=...` (also
-   `GEMINI_API_URL`, `GEMINI_MODEL` and `GEMINI_TIMEOUT_MS`; see `.env.example`).
+   `GEMINI_API_URL`, `GEMINI_MODEL` and `GEMINI_TIMEOUT_MS`; defaults in
+   `.env.defaults`).
 3. On the free tier (200 requests and 50,000 tokens per minute) set
    `SCREENING_RATE_LIMIT_PER_SECOND=2` and `WORKER_CONCURRENCY=2`. Free-tier
    prompts may be used by Google to improve its products, so use test resumes

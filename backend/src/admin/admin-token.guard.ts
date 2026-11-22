@@ -2,13 +2,13 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { safeEqual } from '../common/crypto.js';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { adminConfig, type AdminConfig } from '../config/admin.config.js';
 
 export const ADMIN_TOKEN_HEADER = 'x-admin-token';
 
@@ -19,10 +19,10 @@ export const ADMIN_TOKEN_HEADER = 'x-admin-token';
  */
 @Injectable()
 export class AdminTokenGuard implements CanActivate {
-  private readonly token: string | undefined;
+  private readonly token: string | null;
 
-  constructor(config: ConfigService<EnvironmentVariables, true>) {
-    this.token = config.get('ADMIN_API_TOKEN', { infer: true });
+  constructor(@Inject(adminConfig.KEY) config: AdminConfig) {
+    this.token = config.token;
   }
 
   canActivate(context: ExecutionContext): boolean {

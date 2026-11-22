@@ -83,7 +83,7 @@ The API is complete for every screen in SR 1.5.3; the contract is
 | # | Task | Why | Owner |
 |---|---|---|---|
 | 1 | ~~**Run tests automatically on every change (CI).**~~ Done: `.github/workflows/ci.yml` runs lint, Prettier, build, unit and integration tests (Postgres, Valkey, SeaweedFS) for the backend, and typecheck, lint, Prettier, tests, build and mocked Playwright for the frontend, plus a Docker image build. `publish-image.yml` pushes the backend image to GHCR on merges to `main`. Still to do: mark the **CI passed** check as required in the branch protection rules, and decide where the image is deployed. | NFR 9.2, SR 1.3.1.3 | QA & DevOps |
-| 2 | **Production secrets and credentials.** Strong `JWT_SECRET`, `POSTGRES_PASSWORD`, new SeaweedFS keys in `docker/seaweedfs/s3.json` (and `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY`), a real `GOOGLE_CLIENT_ID`. The repository only has development values. | NFR 9.3 | DevOps |
+| 2 | **Production secrets and credentials.** In the server's `.env`: strong `JWT_SECRET`, `POSTGRES_PASSWORD`, `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` (SeaweedFS takes the same ones), a real `GOOGLE_CLIENT_ID`. `.env.example` only has development values. Note that changing `POSTGRES_PASSWORD` after the first start doesn't change it inside an existing database volume. | NFR 9.3 | DevOps |
 | 3 | **Real domains for HTTPS.** Point DNS for `API_DOMAIN` and `FILES_DOMAIN` to the server and open ports 80 and 443; Caddy then gets certificates automatically. | NFR 4.2 | DevOps |
 | 4 | **Backups off the server, and a restore test.** Backups are only in `backend/backups` on the same machine. Copy them elsewhere (another disk or S3 bucket) and try a restore once (command in the README). | NFR 3.5 | DevOps |
 | 5 | **Load test.** Check API p95 under 200 ms (NFR 1.5), list sorting and filtering under 1 s (NFR 1.2), and many simultaneous uploads (week 11 in the plan). Use the results to confirm the 4 vCPU / 8 GB server size (SR 1.3.1.5). | NFR 1.2, 1.5 | QA |
@@ -113,8 +113,6 @@ The API is complete for every screen in SR 1.5.3; the contract is
   the requirements specify.
 - The duplicate check compares exact file contents within one job; the same
   person's resume in two formats counts as two candidates.
-- Several worker containers need several services in `docker-compose.yml`:
-  fixed container names rule out `docker compose --scale`.
 
 ## 4. Housekeeping
 

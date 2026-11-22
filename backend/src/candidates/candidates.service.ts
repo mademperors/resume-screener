@@ -1,9 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, type SelectQueryBuilder } from 'typeorm';
 import { assertOwnedByCompany } from '../common/tenant.js';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { storageConfig, type StorageConfig } from '../config/storage.config.js';
 import type { Job } from '../jobs/job.entity.js';
 import { JobsService } from '../jobs/jobs.service.js';
 import { normalizeSkill } from '../jobs/requirements.js';
@@ -46,11 +45,9 @@ export class CandidatesService {
     private readonly jobs: JobsService,
     private readonly storage: FileStorage,
     private readonly removal: ResumeRemovalService,
-    config: ConfigService<EnvironmentVariables, true>,
+    @Inject(storageConfig.KEY) config: StorageConfig,
   ) {
-    this.downloadTtlSeconds = config.get('RESUME_DOWNLOAD_URL_TTL_SECONDS', {
-      infer: true,
-    });
+    this.downloadTtlSeconds = config.downloadUrlTtlSeconds;
   }
 
   async list(

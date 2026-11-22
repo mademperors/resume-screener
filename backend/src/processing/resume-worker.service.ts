@@ -1,8 +1,20 @@
-import { Injectable, Logger, type OnApplicationShutdown } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  type OnApplicationShutdown,
+} from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import {
+  processingConfig,
+  type ProcessingConfig,
+} from '../config/processing.config.js';
+import { queueConfig, type QueueConfig } from '../config/queue.config.js';
+import {
+  retentionConfig,
+  type RetentionConfig,
+} from '../config/retention.config.js';
 import { RESUME_QUEUE, type ResumeTask } from '../queue/processing-queue.js';
 import { createRedisClient } from '../queue/redis.module.js';
 import { ResumeProcessor } from './resume-processor.service.js';
@@ -37,17 +49,15 @@ export class ResumeWorker implements OnApplicationShutdown {
     private readonly processor: ResumeProcessor,
     private readonly sweeper: ResumeSweeper,
     private readonly retention: RetentionService,
-    config: ConfigService<EnvironmentVariables, true>,
+    @Inject(queueConfig.KEY) queue: QueueConfig,
+    @Inject(processingConfig.KEY) processing: ProcessingConfig,
+    @Inject(retentionConfig.KEY) retentionSettings: RetentionConfig,
   ) {
-    this.redisUrl = config.get('REDIS_URL', { infer: true });
-    this.concurrency = config.get('WORKER_CONCURRENCY', { infer: true });
-    this.ratePerSecond = config.get('SCREENING_RATE_LIMIT_PER_SECOND', {
-      infer: true,
-    });
-    this.sweepIntervalMs =
-      config.get('SWEEP_INTERVAL_SECONDS', { infer: true }) * 1000;
-    this.retentionIntervalMs =
-      config.get('RETENTION_INTERVAL_MINUTES', { infer: true }) * 60_000;
+    this.redisUrl = queue.redisUrl;
+    this.concurrency = processing.concurrency;
+    this.ratePerSecond = processing.screeningRatePerSecond;
+    this.sweepIntervalMs = processing.sweepIntervalMs;
+    this.retentionIntervalMs = retentionSettings.intervalMs;
   }
 
   get running(): boolean {

@@ -2,13 +2,16 @@ node_modules
 dist
 coverage
 test
+docs
 backups
 docker
 .env
 .env.*
+!.env.defaults
 *.tsbuildinfo
 *.pdf
 *.log
 Dockerfile
 docker-compose.yml
 README.md
+vitest.config.ts

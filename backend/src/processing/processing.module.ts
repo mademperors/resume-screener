@@ -1,9 +1,16 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import { ConfigModule } from '@nestjs/config';
+import { processingConfig } from '../config/processing.config.js';
+import { queueConfig } from '../config/queue.config.js';
+import { retentionConfig } from '../config/retention.config.js';
+import {
+  screeningConfig,
+  type ScreeningConfig,
+} from '../config/screening.config.js';
+import { sessionConfig } from '../config/session.config.js';
+import { ResumeRemovalModule } from '../resumes/resume-removal.module.js';
 import { DocumentTextExtractor } from './extraction/document-text-extractor.js';
 import { RuleBasedResumePreprocessor } from './preprocessing/resume-preprocessor.js';
-import { ResumeRemovalModule } from '../resumes/resume-removal.module.js';
 import { ResumeProcessor } from './resume-processor.service.js';
 import { ResumeSweeper } from './resume-sweeper.service.js';
 import { ResumeWorker } from './resume-worker.service.js';
@@ -24,7 +31,14 @@ import {
  * provider. The screening model is chosen with SCREENING_MODEL.
  */
 @Module({
-  imports: [ResumeRemovalModule],
+  imports: [
+    ConfigModule.forFeature(processingConfig),
+    ConfigModule.forFeature(queueConfig),
+    ConfigModule.forFeature(retentionConfig),
+    ConfigModule.forFeature(screeningConfig),
+    ConfigModule.forFeature(sessionConfig),
+    ResumeRemovalModule,
+  ],
   providers: [
     ResumeProcessor,
     ResumeSweeper,
@@ -35,16 +49,10 @@ import {
     { provide: ScoringEngine, useClass: WeightedScoringEngine },
     {
       provide: ScreeningModel,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) =>
-        config.get('SCREENING_MODEL', { infer: true }) === 'gemini'
-          ? new GeminiScreeningModel({
-              // validateEnv guarantees the key when SCREENING_MODEL=gemini.
-              apiKey: config.get('GEMINI_API_KEY', { infer: true })!,
-              apiUrl: config.get('GEMINI_API_URL', { infer: true }),
-              model: config.get('GEMINI_MODEL', { infer: true }),
-              timeoutMs: config.get('GEMINI_TIMEOUT_MS', { infer: true }),
-            })
+      inject: [screeningConfig.KEY],
+      useFactory: (config: ScreeningConfig) =>
+        config.model === 'gemini'
+          ? new GeminiScreeningModel(config.gemini)
           : new MockScreeningModel(),
     },
   ],

@@ -1,5 +1,4 @@
 import { Redis } from 'ioredis';
-import { Client } from 'pg';
 import { DataSource } from 'typeorm';
 import { databaseOptions } from '../../src/database/database.options.js';
 import { testInfrastructure } from './test-env.js';
@@ -31,24 +30,27 @@ export default async function setup(): Promise<void> {
 async function createDatabaseIfMissing(url: string, name: string) {
   const admin = new URL(url);
   admin.pathname = '/postgres';
-  const client = new Client({ connectionString: admin.toString() });
+  let db: DataSource;
   try {
-    await client.connect();
+    db = await new DataSource({
+      type: 'postgres',
+      url: admin.toString(),
+    }).initialize();
   } catch (error) {
     throw new Error(
       `Postgres is not reachable at ${admin.host} (${String(error)}). ${START_SERVICES}`,
     );
   }
   try {
-    const { rowCount } = await client.query(
+    const rows: unknown[] = await db.query(
       'SELECT 1 FROM pg_database WHERE datname = $1',
       [name],
     );
-    if (!rowCount) {
-      await client.query(`CREATE DATABASE "${name}"`);
+    if (rows.length === 0) {
+      await db.query(`CREATE DATABASE "${name}"`);
     }
   } finally {
-    await client.end();
+    await db.destroy();
   }
 }
 

@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Brackets, DataSource } from 'typeorm';
-import type { EnvironmentVariables } from '../config/env.validation.js';
+import {
+  processingConfig,
+  type ProcessingConfig,
+} from '../config/processing.config.js';
 import { Job } from '../jobs/job.entity.js';
 import { ProcessingQueue, type ResumeTask } from '../queue/processing-queue.js';
 import { Resume, ResumeStatus } from '../resumes/resume.entity.js';
@@ -34,14 +36,11 @@ export class ResumeSweeper {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly queue: ProcessingQueue,
-    config: ConfigService<EnvironmentVariables, true>,
+    @Inject(processingConfig.KEY) config: ProcessingConfig,
   ) {
-    this.staleMs = config.get('STALE_RESUME_MINUTES', { infer: true }) * 60_000;
-    this.retryFailedAfterMs =
-      config.get('FAILED_RESUME_RETRY_AFTER_MINUTES', { infer: true }) * 60_000;
-    this.maxAutoRetries = config.get('FAILED_RESUME_MAX_AUTO_RETRIES', {
-      infer: true,
-    });
+    this.staleMs = config.staleAfterMs;
+    this.retryFailedAfterMs = config.failedRetryAfterMs;
+    this.maxAutoRetries = config.maxAutoRetries;
   }
 
   async sweep(now = new Date()): Promise<SweepResult> {
